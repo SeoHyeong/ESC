@@ -1,0 +1,62 @@
+---
+title: "HW 3: A Graph for the Economist"
+author: ""
+date: ""
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+---
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+```
+
+<!-- Don't edit the material above this line -->
+
+The Economist is a well-regarded weekly news magazine. The following graphic accompanied their article about the release of the “College Scorecard” data in Sept. 2015. It shows the yearly cost of attending college versus college selectivity. Each dot is one college or university. Your task is to reproduce this graph from the College Scorecard data, and perhaps enhance it.
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/economist.png)
+
+## The data
+The Scorecard data takes too long to download. You’ll be working with a subset available at `tiny.cc/dcf/ScorecardSmall.Rda` which contains a single object, the data table `ScorecardSmall`. The following commands downloads the data file `ScorecardSmall.Rda` to your home directory and then loads it to RStudio creating a data table called `ScorecardSmall`.
+
+```{r}
+download.file("http://tiny.cc/dcf/ScorecardSmall.Rda", destfile = "~/ScorecardSmall.Rda")
+load("~/ScorecardSmall.Rda")
+```
+
+The subset includes all 7804 institutions in the original 2015 Scorecard file, but just 54 variables. Some that you may be interested in are:
+
+1. `CONTROL`: public (1) or private (2) institution. (You can discard cases with CONTROL == 3. They are not in the Economist’s graphic.)  
+2. `INSTNM`: name of the institution  
+3. `ADM_RATE`: admissions rate in percent  
+4. `CCSIZSET`: Carnegie size classification of the institution. Values 1, 6, 7, 8 correspond to schools with fewer than 1000 students. (NOTICE the graph only includes colleges with at least 1000 undergrads)  
+5. `AVGFACSAL`: Average faculty salary per month  
+6. `TUITFTE`: Tuition revenue received by the institution per student full-time-equivalent.  
+7. `NPT4_PUB`: average net cost for students in public institutions  
+8. `NPT4_PRIV`: average net cost for students in private institutions  
+9. `NPT41_PUB` : average net cost for students at public institutions whose families are in the lowest of five income groups. Similarly, NPT42_PUB is for students whose family income is in the 2nd group, and so on up to the 5th group. The groups are defined as $0 to $30K per year, $30-48K, $48-75K, $75-110K, $110K or more. There is also NPT41_PRIV, and so on, for private institutions.  
+
+All of the `NPT4` variables are for students receiving aid from the federal government under Title IV.
+
+## Data Wrangling
+
+Is your data table `ScorecardSmall` glyph ready? To make a point in your graphic you need to know the Net cost per year for an institution and this information is spread over different variables in the data table (for example: `NPT4_PRIV`,  `NPT4_PRIV` ). Hence, to make your table glyph ready you will have to convert your table from wide to narrow format. Here is an outline of how to proceed:
+
+1. Select just the variables you need from the Scorecard data.  
+2. Use `tidyr::gather()` to convert from wide to narrow format. Don’t forget to load tidyr.  
+3. After (2) you will have a variable with levels like `NPT43_PUB`, `NPT45_PRIV`, etc. You will want to translate these to  `Q3`, `Q5`, etc. For your convenience, the file `http://tiny.cc/dcf/NPT4-names.csv` contains a table with the appropriate translations. You can use a join of the narrow-format Scorecard data with this table to perform the translations.  
+4. Write the ggplot commands necessary to produce the Scorecard graphic from your wrangled data table.  
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/scorecard.png)
+
+
+Hints:
+
+1. Do not select `NPT42_PUB`, `NPT42_PRIV`, `NPT44_PUB`, `NPT44_PRIV` in step 1.  
+
+2. I suggest your include `filter(ADM_RATE<100)` so you plots don’t have a line of values at Admission rate % = 100.  
+
+3. Here is a link to learn about [Knitr chunk options](https://yihui.name/knitr/options/). Look for fig.width and fig.height to control the size of your graphics.

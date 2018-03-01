@@ -1,0 +1,174 @@
+---
+title: "hw 2"
+author: ""
+date: ""
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+library(printr)
+library(lubridate)
+```
+
+
+
+```{r eval=FALSE}
+library(DataComputing)
+library(printr)   #to make nice tables
+library(lubridate)  #to make dealing with Dates a little easier
+
+```
+
+
+<!-- Don't edit the material above this line -->
+
+In this activity, you're going to get experience data wrangling and making multilayered plots with ggplot2. It is important to be able to look up the syntax and aesetics for the different geoms. Here is a good resource from [ggplot2.org](http://docs.ggplot2.org/current/index.html)
+
+0. Open a new .Rmd file to answer the following questions. I suggest you install the latest version of DataComputing and use the DataComputing html template. Submit the html report with embedded .Rmd file to google drive 'hw submission' folder.
+
+```{r eval=FALSE}
+devtools::install_github("DataComputing/DataComputing")
+```
+
+1. The data table `Births78` in `mosaicData` package gives a day by day record of the number of births in the United States in 1978. Use the `data()` function to load this dataset and view the data set using the function `head()`.
+
+```{r, echo=FALSE}
+data(Births78, package="mosaicData")
+head(Births78)
+```
+
+2. The `date` variable in `Birth78` prints out in the conventional, human-readable way. The `lubridate` package contains helpful functions that will extract various information about any date. For this assignment you will need to use the function `lubridate::month(date)` which gives you the month from `date`.  Use the optional argument `label=TRUE` to have the month spelled out rather than given as a number 1-12.
+For example:
+```{r}
+head(Births78$date)
+head(month(Births78$date, label=TRUE))
+```
+For purposes of clarity later, we will rename wday as Wday using `rename()`:
+```{r}
+myBirths78 <- Births78 %>% rename(Wday=wday)
+head(myBirths78)
+```
+
+Grouping by `Wday` and `month(date)` show the data wrangling commnands to find the average number of births for each day of the week. Start with the command:
+ 
+ 
+```{r,eval=FALSE}
+avg_Births <- myBirths78 %>% 
+```
+
+```{r, echo=FALSE}
+avg_Births <- myBirths78 %>% 
+  mutate(Month=month(date,label=TRUE)) %>%
+  group_by(Month,Wday) %>% 
+  summarise(avg=mean(births))
+```
+
+
+```{r}
+head(avg_Births)
+```
+
+3. Write the ggplot commands to produce the following plot. Start your command as:
+
+```{r,eval=FALSE}
+plot1 <- avg_Births %>%
+```
+
+
+
+```{r, echo=FALSE}
+plot1 <- avg_Births %>% ggplot(aes(x=Wday,y=avg)) +geom_point(aes(color=as.factor(Month)))
+plot1
+```
+
+Apparantly, people tend to have babys on the weekdays!  
+
+4. Lets introduce another dataset to our graph. You can find a data set listing US federal holidays at `http://tiny.cc/dcf/US-Holidays.csv`.  Read it in as follows:^[The point of the `lubridate::dmy()` function is to convert the character-string date stored in the CSV to a POSIX date format that automatically respects the order of time.] 
+
+```{r}
+Holidays <- read.csv("http://tiny.cc/dcf/US-Holidays.csv") %>%
+mutate(date = lubridate::dmy(date))
+head(Holidays)
+```
+
+Using the function `filter()`, keep only those cases in the month of November and December of 1978. Call the reduced dataset `myHolidays`.
+
+```{r, echo=FALSE}
+my_months=c(11,12)
+myHolidays <- Holidays %>% filter(month(date) %in% my_months , year(date)==1978) 
+```
+
+```{r}
+head(myHolidays)
+```
+
+
+5.  Add a layer to your plot from (3). Find the ggplot2 commands to draw a vertical bar at each date which is a holiday in November or December as shown below.  You'll use the `geom_vline()` glyph.  You can give a `data = ` argument to `geom_vline()` to tell it to plot out the information from `myHolidays` rather than the data table making the plot from (3). You will need to set `xintercept=wday(date)`. Start your command as:
+
+```{r, eval=FALSE}
+plot2 <- avg_Births %>% 
+```
+
+ 
+ 
+```{r,echo=FALSE}
+plot2 <- avg_Births %>% ggplot(aes(x=Wday, y=avg)) + geom_point(aes(color=as.factor(Month))) +geom_vline(data= myHolidays, aes(xintercept=wday(date))) 
+
+plot2
+
+```
+ 
+6. Add a text label to each of the vertical bars to identify which holiday it is.  Use the `geom_text()` glyph.^[Hints: You'll have to make up a y-coordinate for each label.  You can set the orientation of each label with the `angle` aesthetic.]  Start your command as:
+
+```{r,eval=FALSE}
+plot3 <- plot2 +
+```
+
+
+
+
+```{r, echo=FALSE}
+plot3 <- plot2 + geom_text(data = myHolidays,
+           aes(x = wday(date),label = holiday), y = 7600,  angle = 65, size=2)
+plot3
+```
+
+
+7. Next your layer your graph with a horizontal line with yintercept equal to the average number of births in for a day in 1978. Make the following plot staring your command as:
+
+
+```{r,eval=FALSE}
+avg <- Births78 %>% summarise(avg=mean(births))
+plot4 <- plot3 + 
+```
+
+
+```{r, echo=FALSE}
+avg <- Births78 %>% summarise(avg=mean(births))
+plot4 <- plot3 + geom_hline(yintercept = avg[1,1])
+plot4
+```
+
+
+8. Use `annotate()` to label the horizontal line as average starting your command as:
+
+```{r,eval=FALSE}
+plot4 +
+```
+
+
+```{r, echo=FALSE}
+plot4 + annotate("text", label="avg", x="Sun", y=9000)
+```
+
+
+
+
+
+

@@ -1,0 +1,722 @@
+---
+title: "세미나(2)"
+author: "SeoHyeong Jeong"
+date: "2018/01/11"
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+---
+```{r eval=FALSE, echo=FALSE}
+#you need to run this once in console to install printr
+install.packages(
+  'printr',
+  type = 'source',
+  repos = c('http://yihui.name/xran', 'http://cran.rstudio.com')
+)
+```
+
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+library(printr)
+library(mosaic)
+library(ggplot2)
+library(knitr)
+library(xtable)
+```
+<!-- leave this material as is -->
+
+
+*Source file* 
+```{r, results='asis', echo=FALSE}
+includeSourceDocuments()
+```
+<!-- Don't edit the material above this line -->
+```{r, echo=FALSE}
+show_answers = TRUE
+```
+
+##학습목표
+1. Intro to Graphics
+2. Components of Graphics
+3. `ggplot2`(1)
+4. `dplyr`(1) - Data Verbs
+5. base package vs. `ggplot2`
+
+* reference: UC Berkeley Stat 133 Data Computing By [Adam Lucas](http://rpubs.com/alucas)  
+
+
+
+## 1. Intro to Graphics
+
+이번 세션에서는 다음의 패키지를 사용할 것이다: `mosaicData`.
+
+```{r, eval=FALSE}
+install.packages("mosaicData")
+```
+
+#### data()를 사용하여 R로 데이터를 로딩하기
+
+data() 함수는 특정한 데이터셋을 특정 패키지로 부터 불러올 때 사용된다. 예를들어, `mosaicData` 패키지의 `CPS85`(1985 Current Population Survey) 데이터셋은 다음과 같이 불러올 수 있다.
+
+```{r, echo=FALSE}
+data("CPS85",package="mosaicData")
+head(CPS85)
+```
+
+`mosaicData`는 여러 데이터셋을 포함하고 있으며 한번 로딩되면 (i.e. `library(mosaicData)`) 이 패키지에 포함된 모든 데이터셋을 컴퓨터의 메모리에 저장하게 된다. 따라서 모든 데이터셋이 아닌 특정 데이터셋만이 필요할 때, data()가 유용하게 사용된다.
+
+```{r, eval=FALSE}
+data("CPS85",package="mosaicData")
+```
+
+위의 명령은 `CPS85` 데이터셋만 로딩한다.
+
+#### 기본 formula in R
+
+R에서의 *formula*는 `~`을 이용하여 변수들 사이의 관계를 나타내게 해준다. y~x는 x로 표현된 y라는 함수라는 뜻을 가지고 있듯, wage ~ age라는 formula는 age를 독립변수(independent variable)로 wage를 종속변수(dependent variable)로 취급한다.
+
+
+## 2. Components of Graphics
+
+ggplot2 패키지에서 사용되는 graphic의 요소들을 살펴보자.
+
+#### Glyphs and Data
+
+Glyph 그 어원이 상형문자에서 온다.
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/Glyph1.png) 
+
+#### Data Glyphs (Geoms)
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/glyph2.png) 
+
+data glyph는 시각적으로 데이터를 표현하는 것이다.
+
+* 어떤 것은 매우 간단한 형태이며, (예시: dots) ![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/glyph3.png) 
+
+* 어떤 것은 데이터를 모아 요약한 형태이며, (예시: 히스토그램) ![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/glyph4.png) 
+
+* 어떤 것은 데이터를 복잡한 형태로 표현한 것이다. (예시: confidence interval for expected conditional mean) ![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/glyph5.png) 
+
+See: *<http://docs.ggplot2.org/current/>*
+
+
+####ggplot2 패키지로 만들어지는 그래프들의 구성요소:
+
+`mosaicData::CPS85` 데이터 셋을 사용하여 살펴보자.
+
+```{r}
+data(CPS85, package="mosaicData")
+head(CPS85)
+```
+
+**Frame**= glyps가 그려질 사각형의 공간. 
+```{r}
+ggplot()
+```
+
+**Aesthetics**= 데이터 테이블의 변수들과 관련있는 frame이나 glyphs의 특징들을 일컫는다. 예를들어, 색상, 모양, 그리고 점들의 위치가 aesthetics이다.
+  
+**Scales**= Scales은 데이터 테이블의 변수와 aesthetics 간의 mapping을 control한다.
+
+
+```{r}
+CPS85 %>% ggplot(aes(x=age,y=wage))
+```
+
+
+
+**Glyph**= frame 속의 geometrical objects.
+
+
+```{r}
+CPS85 %>% ggplot(aes(x=age,y=wage)) + geom_point()
+```
+
+
+**Graphical Attributes**= glyphs의 특징 중 데이터 테이블의 변수들과 관련없는 것들을 일컫는다. 예를들어 투명도(alpha)라던지 색(for this case, color that applies to every point)가 그 예시이다.
+
+
+```{r}
+CPS85 %>% ggplot(aes(x=age,y=wage)) + geom_point(alpha=.2, colour="red")
+```
+
+
+**Facets**= 카테고리 변수의 level을 나타내기 위해 여러개의 면으로 되어있는 display를 facet이라 한다.
+
+```{r}
+CPS85 %>% ggplot(aes(x=age,y=wage)) + geom_point() + facet_grid(married ~ .)
+```
+
+
+
+
+**guides**= 보는 사람들에게 해당 그래프에서 scale(mapping)이 무엇인지 알 수 있도록 해주는 것.
+
+```{r}
+CPS85 %>% ggplot(aes(x=age,y=wage)) + geom_point(aes(shape=sex)) + facet_grid(married ~ .)
+```
+
+
+guides의 예시:
+
+* 축과 숫자
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/guide1.png)
+
+* Legends
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/guide2.png)
+
+* faceted graphics의 labels
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/guide3.png)
+
+
+
+
+**Layers**= 두 개 이상의 glyph가 한 그래프에 있는 것을 layer가 있다고 한다.
+
+```{r}
+CPS85 %>% ggplot(aes(x=age,y=wage)) +geom_point(colour = "pink", size = 4) + geom_point(colour = "black", size = 1.5)
+```
+
+
+####예시:
+
+`mosaic::NHANES`데이터의 일부와 그에 해당하는 그래픽 표현이다.
+
+```{r echo=FALSE, fig.keep='all', out.width="50%", message=FALSE}
+set.seed(102)
+require(mosaic)
+require(knitr)
+require(NHANES)
+n <- 75
+Tmp <- 
+  NHANES %>%
+  mutate(
+    smoker = derivedFactor(
+      never = Smoke100 == "No",
+      former = SmokeNow == "No",
+      current = SmokeNow == "Yes",
+      .ordered = TRUE
+    ),
+    sbp = BPSysAve,
+    dbp = BPDiaAve,
+    sex = Gender
+  ) %>%
+  select( sbp, dbp, sex, smoker ) %>%
+  sample_n(n) %>%
+  filter(complete.cases(.)) %>% 
+  data.frame()
+
+head(Tmp)
+
+p <- ggplot(Tmp, aes(x = sbp, y = dbp)) + 
+  xlab("Systolic BP") + ylab("Diastolic BP")
+p + geom_point(size=5, aes(color=smoker), alpha=.8, shape=17) +facet_grid(. ~ sex)
+```
+
+
+구성요소들은:
+
+**Frame:** rectangular region
+
+**Glyph:** points
+
+**Facets:** sex
+
+**Aesthetics:** The frames aesthetics is x and y. The points aesthetic is smoker.
+
+**Scales:** x=sbp, y=dbp, color=smoker
+
+**Graphical attributes:** size, alpha, shape
+
+**Guides:** tick mark on axes, labels on faceted graphs, legend
+
+**Layers:** none
+
+ggplot2에서의 명령은 다음과 같다:
+
+```{r, eval=FALSE}
+p <- ggplot(df, aes(x = sbp, y = dbp)) + 
+  xlab("Systolic BP") + ylab("Diastolic BP")
+p + geom_point(size=5, aes(color=smoker), alpha=.8, shape=17) +facet_grid(. ~ sex)
+```
+
+
+###Discuss
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/ch6-quest.png) 
+
+각각의 구성요소를 생각해보자:
+
+
+*Frame:* --a rectanglular region
+
+*Glyphs:* ---confidence regions and stars (two different glyphs)
+
+*Facets:* --- none
+
+*Aesthetics:* ---x,y, color of center point of confidence interval, y position of bottom of confidence interval, y position of top of confidence interval, number of stars, 
+
+*Scales:* x=protein, y=center, color of center point of confidence interval=polarity, y position of bottom of confidence interval=low, y position of top of confidence interval=high, number of stars= signif 
+
+*Graphical attributes:* hard to tell but probably alpha and size
+
+*Guides:* ticker marks on y, protein names next to CI     
+
+*Layers:* different glyphs
+
+
+다음의 그래프는 [nytimes](http://www.nytimes.com/newsgraphics/2014/senate-model/comparisons.html) 에서 추출한 것이다. (prediction of 36 senate seats from different polling organizations)
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/iclicker1.png) 
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture2/iclicker2.png) 
+Answ: c. Notice that text is a guide not an aethetic (perhaps you are thinking of text as a glyph but it really is a guide. If text is a glyph then font would be an example of a graphical attribute of the glyph)
+  
+## 3. `ggplot2`(1)
+`ggplot2` 패키지는 앞서 살펴본 그래프의 요소 (i.e. glyphs, aestetics, frames, scales, layers)를 사용한다. 이러한 요소들을 우리는 그래프의 문법이라 한다. 지금부터는 glyphs를 geoms으로 부르기로 한다.
+
+### examples
+다음은 mosaicData::CPS85 데이터 셋이다:
+```{r, echo=TRUE}
+data(CPS85,package="mosaicData")
+head(CPS85)
+frame <- CPS85 %>% ggplot(aes(x=age,y=wage)) 
+frame + geom_point()
+```
+
+```{r, echo=TRUE}
+frame <- CPS85 %>% ggplot(aes(x=age,y=wage)) 
+frame + geom_point(aes(shape=sex))
+```
+
+
+```{r, echo=TRUE}
+frame <- CPS85 %>% ggplot(aes(x=age,y=wage)) 
+frame + geom_point(aes(shape=sex)) + facet_grid(married ~ .)
+```
+
+```{r, warning=FALSE, echo=TRUE}
+frame <- CPS85 %>% ggplot(aes(x=age,y=wage)) 
+frame + geom_point(aes(shape=married)) + ylim(0,30)
+```
+
+
+ggplot2와 관련된 자료는 다음의 링크를 통해 얻을 수 있다:
+
+[ggplot](http://docs.ggplot2.org/current/)  
+
+[Rstudio](https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf)
+
+
+###Discuss
+
+`CPS85`을 이용하여 다음을 만들어라.
+
+```{r, echo=FALSE}
+CPS85 %>% ggplot(aes(x=age,y=wage)) + geom_point(aes(color=married)) + facet_wrap(~sex)
+```
+
+```{r}
+#library(mosaic)
+#library(ggplot2)
+#data(CPS85,package="mosaicData")
+#head(CPS85)
+CPS85 %>% ggplot(aes(x=age, y=wage)) + geom_point(aes(color=married)) + facet_wrap(~sex)
+```
+
+
+## 4. Data Verbs
+
+데이터 테이블은 *glyph ready*(가공없이 ggplot2를 이용하여 그래프로 표현할 수 있는 상태)의 상태로 존재하기가 드물다. 따라서 데이터를 조작하는 것이 필요한데, 이러한 과정을 *wrangling*이라 한다. data verb는 데이터 테이블을 input으로 원하는 데이터 테이블을 output으로 반환하는 함수이다.
+
+* `summarise()` and `group_by()`
+* `select()`
+* `mutate()`
+* `filter()`
+* `arrange()`
+
+###1) `summarise()` and `group_by()`
+
+`summarise()` 와 `group_by()`는 가장 흔하게 쓰이는 data verb이다:
+
+`summarise()` 은 `n()` or `sum()` or `mean()`등의 reduction formulas를 이용하여 여러개의 case를 하나의 case로 반환하는 함수이다.
+
+예를들어:
+```{r}
+head(DataComputing::BabyNames)
+BabyNames %>% summarise(num_cases=n())  #gives the number of rows.
+```
+
+여기서 `n()`은 `summarise()` 내에서만 작동하는 reduction fuction이다.
+
+`summarise(num_cases= n())`를 사용하는 대신, `nrow()` 혹은 `tally()` 함수 또한 동일하게 사용가능하다.
+
+```{r}
+BabyNames %>% nrow()
+BabyNames %>% tally()
+```
+
+`tally()`의 경우는 output이 데이터 테이블이라는 점에서 data verb에 해당하지만, `nrow()`는 그 output이 integer이기 때문에 data verb에 해당하지 않는다.
+
+```{r}
+BabyNames %>% summarise(average=mean(count)) #gives the average of counts
+```
+
+`mean()` 혹은 `sum()`는 *reduction* functions으로 변수를(ex. `count`)를 함수의 argument로 받는다.
+
+만약 이름에 따른 요약 자료를 output 데이터 테이블로 얻고 싶다면 `group_by()` 와 `summarise()`를 함께 사용할 수 있다.
+
+```{r}
+BabyNames %>% 
+  group_by(name) %>%
+  summarise(num_cases=n()) %>%
+  head()
+```
+
+
+
+만약 `name`을 `sex`라는 하위그룹에 따라 나누고 싶다면,`group_by()` 에 `name` 과 `sex` (순서 유의, 두 번째로 오는 것이 하위그룹에 해당) 두 개의 arguments를 준다.
+
+```{r}
+BabyNames %>% 
+  group_by(name, sex) %>%
+  summarise(num_cases=n(), sum_cases=sum(count)) 
+```
+
+
+BabyNames에서 가장 유명한 3개의 이름은?
+
+```{r}
+BabyNames %>%
+  group_by(name) %>%
+  summarise(tot=sum(count)) %>%
+  arrange(desc(tot)) %>%
+  head(3)
+```
+
+
+###Discuss
+
+1. 각 후보자들이 몇 개의 precints에서 first place를 얻었는지에 대한 bar plot을 만드려고 한다. 다음의 데이터를 data verb를 사용하여 glyph ready로 만들어보자.
+
+```{r}
+#not glyph ready
+head(DataComputing::Minneapolis2013)
+```
+
+```{r, echo=FALSE}
+FirstPlaceTally <- Minneapolis2013 %>% 
+  rename(candidate=First) %>%
+  group_by(candidate) %>%
+  summarise(total=n()) %>%
+  arrange( desc(total))
+```
+
+즉, 우리가 원하는 데이터의 형태는 아래와 같은 것이다.
+```{r}
+#glyph ready
+FirstPlaceTally
+```
+
+2. 가장 ballots cast가 높은 precint에서 낮은 precint 순으로 데이터를 재정렬하려 하는 경우.
+
+```{r, include=show_answers}
+Minneapolis2013 %>%
+  group_by(Precinct) %>%
+  summarise(count=n()) %>%     # n() finds how many cases there are
+  arrange(desc(count))
+
+#or
+
+
+Minneapolis2013 %>%
+  group_by(Precinct) %>%
+  tally(sort=TRUE)  
+```
+
+3. 2번과 같이 precint를 정렬하되, "BETSY HODGES"를 first로 가지는 ballots cast를 기준으로 precint를 정렬하는 경우.
+
+```{r, include=show_answers}
+Minneapolis2013 %>%
+    filter(First =="BETSY HODGES") %>% 
+    group_by(Precinct) %>%
+    tally(sort=TRUE)
+```
+
+4. 몇 개의 투표에서 "BETSY HODGES"가 First와 Second 모두 선택되었는지 알고 싶은 경우.
+
+```{r, include=show_answers}
+Minneapolis2013 %>%
+  filter(Second == "BETSY HODGES", First == "BETSY HODGES") %>%
+  tally()   #could also use nrow here
+```
+
+```{r, include=show_answers}
+Minneapolis2013 %>%
+  group_by(First,Second) %>%
+  tally() %>%
+  filter(First=="BETSY HODGES", Second=="BETSY HODGES")
+```
+
+
+###2) `select()`
+데이터 테이블에서 select 함수는 하나 혹은 그 이상의 변수를 선택하는데 사용된다. select 함수를 사용하는 이유는 다음과 같다:
+
+* 작업 중인 데이터 테이블을 간단하게 하기 위해서
+* 이름을 다시 붙여야 할 변수가 있는 경우 더욱 적합한 이름을 붙이기 위해서
+
+select 함수는 데이터 테이블을 input으로 받아, 선택한 변수들만으로 이루어진 데이터 테이블을 반환한다.
+
+`BabyNames` 데이터 테이블로 예시를 살펴보자:
+
+```{r echo=FALSE}
+BabyNames %>% head( ) 
+```
+
+`name`과 `year` 변수만을 선택하는 경우:
+
+```{r echo=FALSE}
+BabyNames %>% select( name, year ) %>% head() 
+```
+
+변수에 새로운 이름을 붙이고 싶은 경우,`when=year`의 argument를 select 함수로 보낸다:
+
+```{r eval=FALSE}
+BabyNames %>% select( name, when=year )
+```
+
+```{r echo=FALSE,}
+BabyNames %>% select( name, when=year ) %>% 
+  head() 
+```
+
+###3) `filter()`
+"filter"은 원하지 않는 cases을 걸러내는데 사용된다. 앞서 살펴본 filter과는 반대의 개념을 가진다. select 함수의 경우 특정한 *변수*를 input으로 가지지만, filter 함수는 특정한 *case*를 input으로 가진다.
+
+select에서는 함수의 input의 변수이 이름이다.
+```{r echo=TRUE}
+BabyNames %>% select( year, count ) %>% head()
+```
+
+filter에서는 case가 특정 기준으로 인해 정해진다. 여기서 기준은 그 결과가 true/false로 도출되는 논리문을 의미한다. 즉, `==`, `>`, `<`, `%in%` 등의 표현으로 완성되는 논리문이다. 예를들어, 다음은 남아들을 걸러내고 오직 여야들의 이름만 결과로 도출하는 command이다. 
+```{r }
+BabyNames %>% filter( sex=="F") %>%
+  sample_n( size=6 )
+```
+
+다음은 1990년도 이후 태어난 아기들의 이름이다.
+```{r }
+BabyNames %>% filter( year > 1990 ) %>% 
+  sample_n( size=6 ) 
+```
+
+1990년도 이후 테어난 아기들 중 여아:
+
+```{r eval=FALSE}
+BabyNames %>% filter( year > 1990, sex=="F") %>%
+  head()
+```
+
+```{r echo=FALSE}
+BabyNames %>% filter( year > 1990, sex=="F") %>%
+  sample_n( size=6 )
+```
+
+기준은 하나 이상이 될 수도 있다.  `filter()` 함수는 기준이 하나 이상일 때, *모든* 기준을 만족시키는 case만을 골라낸다.
+
+만약, "or"을 표현하고 싶다면(the babies who are female *or* born after 1990):
+```{r eval=FALSE}
+BabyNames %>% filter( year>1990 | sex=="F") 
+```
+
+1980, 1990, 2000, and 2010 중 하나에 태어난 아기들의 이름:
+
+```{r }
+BabyNames %>% 
+  filter( year %in% c(1980, 1990, 2000, 2010)) %>%
+  sample_n( size=6 ) 
+```
+
+`filter()` 와 `group_by()`를 함께 사용하면 원하는 결과를 효율적으로 얻을 수 있다. 예를들어, 이름 중 빈도수가 적어도 100 이상인 이름을 고르려면:
+
+```{r}
+BabyNames %>% group_by(name) %>%
+  filter(count==min(count)) %>%
+  filter(count>100) %>%
+  head()
+```
+
+아기 이름 중 100년 넘게 사용된 것들만 고르고 싶다면:
+
+```{r}
+BabyNames %>% group_by(name) %>%
+  summarise(years_used=n()) %>%
+  filter(years_used>100) %>%
+  head()
+```
+
+###4) `mutate()`
+mutate 함수는 이미 존재하는 변수에 변형을 가하거나, 새로운 변수 (파생변수)를 만드는데 사용된다. mutate 함수의 사용은 case를 제거하지 않은채, 변수에 변형을 가할 뿐이다.
+
+예를들어, `CountryData` 데이터 테이블이`pop` 과 `area` 라는 변수를 가지고 있다. 여기서 인구 밀도를 얻고 싶을 때, mutate를 이용하여 새로운 변수를 생성할 수 있다.
+```{r }
+  CountryData %>% 
+  mutate( popDensity=pop/area ) %>% 
+  select( country, pop, area, popDensity) %>%
+  sample_n(size=6) 
+```
+
+###5) `arrange()`
+
+Arrange 함수는 case들의 순서를 재정렬한다. 하지만 변수에 변형을 가하지는 않는다 --- that's a job for `mutate()`.  마찬가지로 arrange 함수 또한 특정 case를 걸러내지 않는다. 즉, case에 변형을 가하지 않는다. 단지 사용자가 지정하는 특정 기준에 따라 case를 정렬할 뿐이다.
+
+예를들어, 아래는 투표 수를 계산(first-choices만 계산)하여 2013년 Minneapolis의 시장선거 결과를 나타낸 것이다.
+
+```{r}
+Minneapolis2013 %>%
+  group_by( First ) %>% 
+  summarise( total=n() ) %>%
+  head()
+```
+
+위 결과를 보면 후보자 이름이 알파벳 순으로 정렬되어 있는 것을 알 수 있다. 하지만 사용자가 원하는 것이 후보자들 간의 `total` 수 비교라면 `total`을 내림차순으로 정렬하는 것이 더 효율적인 데이터 표현 방식일 수 있다.
+```{r}
+Minneapolis2013 %>%
+  group_by( First ) %>% 
+  summarise( total=n() ) %>%
+  arrange( desc(total) ) %>%
+  head() 
+```
+
+
+### Data verb languages
+
+우리가 사용하고 있는 것은 `dplyr`라는 패키지이다. 하지만 `dplyr`를 이용하여 data wrangling하는 것은 여러 방법들 중 하나일 뿐이라는 것을 인식하는 것이 중요하다. 예를 들면, 다른 여러 방법에는 다음과 같은 것들이 있다:
+
+* dplyr - R에서 사용 
+* data.table - R에서 사용  (for big data)
+* SQL - database servers에서 사용
+
+같은 표현을 다른 notation으로 하면 다음과 같다:
+
+* dplyr
+    `BabyNames %>% group_by(year,sex) %>% summarise( nNames=n() )`
+* data.table
+    `BabyNames[, length(count), by=c("sex","year") ]`
+* SQL
+    `"BabyNames" > GROUP_BY("year", "sex") > SUMMARISE(COUNT() AS "nNames")`
+
+
+## 5. base package vs. `ggplot2` 
+
+mtcars data set을 사용해보자.
+```{r}
+mtcars_m <- mtcars %>% 
+  filter(am==0)
+
+mtcars_a <- mtcars %>%
+  filter(am==1) 
+  
+head(mtcars_a)
+```
+
+
+ggplot 패키지가 개발되기 전 R에서 graphing을 담당했던 것은 *base R package*이다. 아직도 많은 연구자들이 base package를 이용한 그래프로 작업하는 경우가 있으니 base package와 ggplot을 비교하며 그 차이점을 알아보자.
+
+### 예시 1
+
+base package에서 `mtcars`중 manual 자동차에 한해, `mpg` ~ `wt`의 scattter plot을 만들고 싶다면 명령은 다음과 같다.
+```{r}
+plot( mtcars_m$wt,mtcars_m$mpg, col=as.factor(mtcars_m$cyl))
+```
+
+여기까지는 문제가 없어보인다. 만약 우리가 위의 그래프에 automatic 자동차들의 정보를 새로운 layer로 추가하고 싶은 경우 명령은 다음과 같아 질 것이다.
+
+```{r}
+plot(mtcars_m$wt,mtcars_m$mpg,  col=as.factor(mtcars_m$cyl))
+points( mtcars_a$wt,mtcars_a$mpg, col="blue")
+```
+
+base package를 이용할 때의 한계점은:  
+
+1. 그래프가 다시 그려지지 않는다. 
+2. 그래프가 하나의 이미지로써 그려질 뿐이다. 즉, object로 표현되지 않는다. 하지만 ggplot에서는 그래프가 object로 표현된다. 따라서 원하는 변경사항이 있을 경우 손 쉽게 변경을 가할 수 있다.
+3. legend이 필요한 경우 사용자가 직접 만들어야 한다. 예를들어, 위의 그래프에서 무슨 색이 어떤 정보를 주는지에 대한 legend이 필요한 경우 직접 만들어야 한다는 것이다. 
+
+ggplot을 이용하는 경우:
+
+```{r}
+mtcars %>% ggplot(aes(x=wt,y=mpg)) + geom_point(aes(col=as.factor(cyl))) + facet_wrap(~am)
+```
+
+###Discuss
+
+벡터 `precip`는 여러 도시에서의 매년 강수량에 대한 정보를 담고 있다. bace package를 이용하여 `hist` 함수로 다음의 히스토그램을 만들어라(hint: try `hist(precip)`). 그리고 ggplot의`geom_histogram()` 함수를 사용하여 히스토그램을 만들어라. ggplot은 데이터 테이블를 input으로 받기 때문에 `as.data.frame(precip)` 과정이 필요할 것.
+
+[ggplot2.org](http://docs.ggplot2.org/current/index.html)
+
+```{r,echo=FALSE}
+hist(precip)
+as.data.frame(precip) %>% ggplot(aes(precip)) +geom_histogram(binwidth = 10)
+```
+
+
+### 예시 2
+
+
+mpg ~ wt(weight)의 linear model을 만들고 싶은 경우를 가정하자.
+
+```{r}
+# Use lm() to calculate a linear model and save it as carModel
+carModel <- lm(mpg ~ wt, data = mtcars_m)
+carModel
+
+```
+
+위에서 base package로 그렸던 plot에 linear model과 legend를 추가해보자.
+
+```{r}
+plot(mtcars_m$wt,mtcars_m$mpg,  col=as.factor(mtcars_m$cyl))
+carModel <- lm(mpg ~ wt, data = mtcars_m)
+abline(carModel, lty = 2)
+legend(x = 5, y = 25, legend = levels(as.factor(mtcars_m$cyl)), col = 1:3, pch = 1, bty = "n")
+```
+
+혹은 실린더의 타입에 따라 각각의 linear model을 설정하는 경우 plot은 다음과 같을 것이다.
+
+```{r}
+plot(mtcars_m$wt,mtcars_m$mpg,  col=as.factor(mtcars_m$cyl))
+abline(lm(mpg ~ wt, data = mtcars_m, subset= (cyl ==4)), lty = 2)
+abline(lm(mpg ~ wt, data = mtcars_m, subset= (cyl ==6)), lty = 2)
+abline(lm(mpg ~ wt, data = mtcars_m, subset= (cyl ==8)), lty = 2)
+legend(x = 5, y = 25, legend = levels(as.factor(mtcars_m$cyl)), col = 1:3, pch = 1, bty = "n")
+```
+
+물론 `lapply()` 함수를 이용하여 좀 더 같단하게 그래프를 표현할 수도 있다.
+
+```{r, eval=FALSE}
+plot(mtcars_m$wt,mtcars_m$mpg,  col=as.factor(mtcars_m$cyl))
+lapply(mtcars_m$cyl, function(x) {
+  abline(lm(mpg ~ wt, mtcars_m, subset = (cyl == x)), col = x)
+  })
+legend(x = 5, y = 25, legend = levels(as.factor(mtcars_m$cyl)), col = 1:3, pch = 1, bty = "n")
+```
+
+하지만 이 모든 것은 ggplot에서 매우 간단하게 처리할 수 있다. 
+
+**Note** color aesthetic을 geom_point에 위치시키는 대신, ggplot의 frame에 위치시킨 것을 볼 수 있는데, 이는 point와 regression line의 색을 일치시키기 위함이다. legend 또한 특별한 조작 없이 자동으로 완성되는 것을 볼 수 있다.
+
+```{r}
+mtcars_m %>% ggplot(aes(x = wt, y = mpg, col = as.factor(cyl))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+
+

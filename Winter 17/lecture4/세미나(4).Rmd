@@ -1,0 +1,585 @@
+---
+title: "세미나(4)"
+author: "SeoHyeong Jeong"
+date: "2018/01/25"
+output: 
+  html_document:
+    fig_height: 4
+    fig_width: 6
+---
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+library(mosaic)
+library(printr)
+```
+*Source file* 
+```{r, results='asis', echo=FALSE}
+includeSourceDocuments()
+```
+<!-- Don't edit the material above this line -->
+```{r, echo=FALSE}
+show_answers <- TRUE
+knitr::opts_chunk$set(tidy=FALSE, message=FALSE)
+```
+
+##학습목표
+1. Data Verbs: Ranks and Ordering  
+2. `ggplot2`(3)  
+3. Regular Expression (i.e. regex) 
+
+* reference: UC Berkeley Stat 133 Data Computing By [Adam Lucas](http://rpubs.com/alucas)   
+
+## 1. Data Verbs: Ranks and Ordering
+
+data verb `rank()`는 벡터 속의 각각의 숫자를 해당하는 rank로 대체하여 반환한다. 가장 작은 숫자가 rank 1을 가진다.
+
+예시:
+```{r}
+c(20:11) %>% rank()
+```
+
+`desc() %>% rank()` 의 명령어는 rank가 큰 수부터 1을 갖도록 만든다.
+
+```{r}
+c(20:11) %>% desc() %>% rank()
+```
+
+tie가 있는 경우, rank에는 자동적로 평균값이 지정된다.
+
+```{r}
+c(4,4,4,4,4) %>% rank()  #average of 1,2,3,4,5 is 3
+```
+
+```{r}
+c(2,4,2,9,9,8) %>% rank()  # average of 1,2 is 1.5,  average of 5,6 is 5.5
+```
+
+dataverb `dplyr::arrange()`는 데이터 프레임을 increasing order로 정렬한다.
+
+```{r}
+mtcars %>% 
+  arrange(cyl,desc(disp)) %>%  #increasing for cyl, decreasing for disp
+  head()
+```
+
+예시:
+
+Babynames 데이터 테이블로 예시를 살펴보자. 
+```{r}
+head(BabyNames)
+```
+
+다음은 가장 유명한 BabyNames에 rank를 준다.
+
+```{r}
+BabyNames %>%
+  group_by(name) %>%
+  summarise(total=sum(count)) %>%
+  arrange(desc(total)) %>%
+  mutate(rank=rank(total)) %>%
+  head()
+```
+
+```{r}
+BabyNames %>%
+  group_by(name) %>%
+  summarise(total=sum(count)) %>%
+  arrange(desc(total)) %>%
+  mutate(rank=rank(desc(total))) %>%
+  head()
+```
+
+50번째로 유명한 이름을 찾으면:
+
+```{r}
+BabyNames %>%
+  group_by(name) %>%
+  summarise(total=sum(count)) %>%
+  mutate(popularity=rank(desc(total))) %>%
+  filter( popularity ==50)
+```
+
+
+## 2. `ggplot2`(3)
+
+```{r, include=FALSE}
+theme_blank <-  theme(axis.ticks=element_blank(), 
+                      axis.text=element_blank(), 
+                      panel.background=element_blank())
+theme_blank_y <-  theme(axis.ticks.y=element_blank(), 
+                      axis.text.y=element_blank(), 
+                      panel.background=element_blank())
+```
+
+```{r echo=FALSE}
+NCHS <-
+  NCHS %>%
+  filter( !is.na(diabetic) ) %>%
+  mutate( diabetic=ifelse(diabetic==1,"Diabetic","Not"))
+```
+
+
+### Geom_denisty plots
+
+`NCHS`에서 다음의 변수들을 선택:
+
+```{r}
+NCHS %>% select(age,weight,sex,diabetic) %>%
+  head(3)
+```
+
+Density glyphs을 사용하면 서로 다른 그룹간의 분포를 비교할 수 있다. 아래는 sex를 그룹으로 설정하여 두 개의 density plot을 그린 것이다.
+
+```{r, message=FALSE, warning=FALSE}
+NCHS %>% ggplot( aes(x=weight) ) + 
+  geom_density(aes(color=sex, fill=sex), alpha=.5) + 
+  xlab("Weight (kg)") + ylab( "Density (1/kg)")
+
+
+```
+
+facet을 이용하면 sex 이외의 age 그룹으로 그래프를 표현할 수 있다.
+
+```{r, message=FALSE, warning=FALSE}
+#library(mosaic)  Need library(mosaic) for ntiles()
+
+NCHS <- 
+  NCHS %>% 
+  mutate( ageGroup=mosaic::ntiles(age, n=6, format="interval") )
+```
+```{r out.width="90%", message=FALSE, warning=FALSE}
+NCHS %>%
+  ggplot( aes(x=weight, group=sex) ) + 
+  geom_density(aes(color=sex, fill=sex), alpha=.25) + 
+  xlab("Weight (kg)") + ylab( "Density (1/kg)") + 
+  facet_wrap( ~ ageGroup )
+```
+
+그래프의 표현을 데이터에서 보고자 하는 것에 따라 달라진다. 예를들어, 몸무게가 나이에 따라 어떻게 변하는지 보고 싶은 경우, `sex`를 facet의 변수로, `age`를 그룹 변수로 사용하는것이 나을 것이다.
+
+```{r out.width="90%", fig.height=6,fig.width=9, message=FALSE, warning=FALSE}
+NCHS %>%
+  ggplot( aes(x=weight) ) + 
+  geom_density(aes(color=ageGroup, fill=ageGroup), alpha=.25) + 
+  xlab("Weight (kg)") + ylab( "Density (1/kg)") + 
+  facet_wrap( ~ sex ) + theme(text = element_text(size = 20))
+```
+
+### Boxplot and Violin geoms
+
+density plot보다 boxplot이 선호되는 경우도 있다. Boxplot을 해석하는 방법은 이미 안다고 생각하고 생략한다.
+
+`mpg` 데이터 테이블로 예시를 살펴보자.
+
+```{r}
+head(ggplot2::mpg,3)
+
+p <- mpg %>% ggplot(aes(class, hwy))
+p + geom_boxplot() 
+```
+
+[`geom_jitter()`](http://blog.naver.com/PostView.nhn?blogId=coder1252&logNo=220986086164&categoryNo=1&parentCategoryNo=0&viewDate=&currentPage=1&postListTopCurrentPage=1&from=postView)은 point를 그래프 위에 표현하여 데이터의 분포를 대략적으로 알 수 있게 해준다.
+
+```{r}
+
+
+p <- mpg %>% ggplot(aes(class, hwy))
+p + geom_boxplot() + geom_jitter()
+```
+
+`geom_boxplot()` 내부의 aesethic `fill`을 이용하여 boxplot의 색을 변경할 수 있다.
+
+```{r}
+p <- mpg %>% ggplot(aes(class, hwy))
+p + geom_boxplot(aes(fill=drv)) 
+```
+
+
+
+
+`NCHS` 데이터로 boxplot 예시를 살펴보자:
+
+```{r}
+NCHS %>% select(age,weight,sex,diabetic,ageGroup) %>%
+  head(3)
+```
+
+
+
+```{r, message=FALSE, warning=FALSE}
+NCHS %>%
+  ggplot( aes(y=weight, x=ageGroup ) ) + 
+  geom_boxplot(
+    aes(color=ageGroup, fill=ageGroup), 
+    alpha=.25, outlier.size=1, outlier.colour="gray") + 
+  ylab("Weight (kg)") + xlab( "Age Group (yrs)") + 
+  facet_wrap( ~ sex )
+```
+
+*violin* glyph 는 boxplot과 비슷하면서도 boxplot보다는 많은 정보를 제공한다.
+
+```{r, message=FALSE, warning=FALSE}
+NCHS %>%
+  ggplot( aes(y=weight, x=ageGroup) ) + 
+  geom_violin( aes(color=ageGroup, fill=ageGroup), 
+    alpha=.25) + 
+  ylab("Weight (kg)") + xlab( "Age Group (yrs)") + 
+  facet_wrap( ~ sex )
+```
+
+box glyphs와 violin glyphs은 density glyph에 비해 더 많은 데이터를 한 그래프에 표현할 수 있도록한다. 아래는 당뇨병이 있는 사람들의 정보가 빨간색으로 표현된 box plot이다.
+
+```{r, message=FALSE, warning=FALSE}
+NCHS %>%
+  ggplot(aes(y=weight, x=ageGroup)) + geom_boxplot(aes(fill=diabetic), position = position_dodge(width = 0.8),outlier.size = 1, outlier.colour = "gray", alpha=.75) + facet_grid(.~sex) + ylab("Weight (kg)") + xlab("Age Group (yrs)")
+```
+
+### `group` aesthetic  
+
+`x`가 numeric인 경우 points는 같은 그룹에 속하며, `x`가 categorical인 경우는 각각의 point들은 각각 서로 다른 그룹에 속한다. 즉, 각각의 점이 unique한 그룹을 가진다.
+
+예시:
+
+```{r}
+#we can convert a string in the form of a table into a data frame using read.table()
+df = read.table(text = 
+"School      Year    Value 
+A           1998    5
+B           1999    10
+C           2000    7
+A           2001    17
+B           2002    15
+C           2003    20",  header = TRUE)
+
+df
+```
+
+
+####Numeric x
+
+x가 numeric인 경우, data point는 자연스럽게 ordering을 가지게 된다. 따라서 `geom_line()`의 명령어를 받는 순간, x 축에서 자신에게 가장 가까운 점들과 서로 연결된다. 
+
+```{r}
+df %>% ggplot(aes(x = Year, y = Value)) +       
+   geom_line() + geom_point(aes(colour=School)) + geom_smooth( method = "lm", se = FALSE, col="red")
+```
+
+그리고 모든 점들이 하나의 그룹에 속하기 때문에, `geom_smooth()`의 명령어를 받을 때, 하나의 직선이 생성된다.
+
+만약 `group=School`의 aesthetic을 추가하게 되면 점들은 이제 `school`에 따라 서로 다른 그룹을 가지게 되고, 따라서 `geom_smooth()` 명령어는 여러 직선을 생성해낸다.
+
+
+```{r}
+df %>% ggplot(aes(x = Year, y = Value, group=School)) +       
+   geom_line() + geom_point(aes(colour=School)) + geom_smooth( method = "lm", se = FALSE, col="red")
+```
+
+
+
+####categorical x
+
+x가 categorical인 경우, 모든 점은 서로 다른 그룹을 가지기 때문에 `group` aesthetic 없이는 `geom_line()`나 `geom_smooth()`의 명령어가 아무런 line을 생성하지 않는다.
+
+
+```{r}
+df %>% ggplot(aes(x = factor(Year), y = Value)) +       
+  geom_line() + geom_point(aes(colour=School)) + geom_smooth( method = "lm", se = FALSE, col="red") 
+```
+
+
+
+```{r}
+df %>% ggplot(aes(x = factor(Year), y = Value, group = School)) +  geom_line() + geom_point(aes(colour=School)) + geom_smooth( method = "lm", se = FALSE, col="red")
+
+```
+
+
+## 3. Regular Expression (i.e. regex) 
+
+__regular expression__ (regex)은 문자열에서의 패턴을 의미한다.
+
+예시: regex "[a-cx-z]" 는 "a","b","c","x","y","z"와 매치된다.
+
+예시: regex "ba+d"는 "bad", "baad", "baaad" 등과 매치되지만, "bd"와는 매치되지 않는다.
+
+
+regex의 사용:
+
+#### `filter()`와 `grepl()`을 사용하여 문자열에 원하는 패턴이 존재하는지 확인한다.
+
+예를들어, BabyNames 데이터를 다음과 같이 정리한 후,
+
+```{r}
+NameList <- BabyNames %>% 
+  mutate( name=tolower(name) ) %>%
+  group_by( name, sex ) %>%
+  summarise( total=sum(count) ) %>%
+  arrange( desc(total)) 
+
+head(NameList,3)
+```
+
+`grepl()` 함수는 regular expression과 문자열을 비교하여, 만약 서로가 매치되는 경우, TRUE를 매치되지 않는 경우, FALSE를 반환한다. 그리고 regular expression은 ""안에 들어간다.
+
+* name 중 "shine"을 가지고 있는 경우 ("sunshine" 혹은 "moonshine"):
+    ```{r}
+NameList %>% 
+  filter( grepl( "shine", name ) ) %>% 
+  head(3)
+```
+
+* name 중 적어도 3개의 모음을 연속적으로 가진 경우:
+
+```{r}
+NameList %>% 
+  filter( grepl( "[aeiou]{3,}", name ) ) %>% 
+  head(3)
+```
+
+* name 중 적어도 3개의 자음을 연속적으로 가진 경우:
+
+```{r}
+NameList %>% 
+  filter( grepl( "[^aeiou]{3,}", name ) ) %>% 
+  head(3)
+```
+
+* name 중 "mn"를 포함하는 경우:
+
+```{r}
+NameList %>% 
+  filter( grepl( "mn", name ) ) %>% 
+  head()
+```
+
+* name 중 첫번째, 세번째, 그리고 다섯번째 글자가 자음인 경우:
+
+```{r}
+NameList %>% 
+  filter( grepl( "^[^aeiou].[^aeiou].[^aeiou]", name ) ) %>% 
+  head()
+```
+
+남자아이와 여자아이의 이름 중 모음으로 끝나는 경우의 수:
+
+```{r}
+NameList %>%
+  filter( grepl( "[aeiou]$", name ) ) %>% 
+  group_by( sex ) %>% 
+  summarise( total=sum(total) )
+```
+
+여자아이의 이름의 경우가 남자아이 이름의 경우보다 모음으로 끝나는 경우가 약 5배 정도 많다.
+
+```{r,echo=FALSE, include=FALSE}
+Debt <- data.frame(country=c("World","United States", "Japan"),debt=c("$56,308 billion", "$17,607 billion","$9,872 billion"), percentGDP=c("64%","73.60%","214.30%"))
+
+```
+
+## Regular Expressions 작성 방법
+
+* 온라인으로 regex을 익힐 수 있는 사이트 [online](http://regexone.com/) * regex [cheat sheet](http://krijnhoetmer.nl/stuff/regex/cheat-sheet/)
+
+regex 기본:
+
+* simple patterns:
+    * A single `.` means "any character."
+    
+    * A character, e.g., `b`, means just that character.
+    
+    * Characters enclosed in square brackets, e.g., `[aeiou]` means any of those characters.  (So, `[aeiou]` is a pattern describing a vowel.) 
+    
+    * The `^` inside square brackets means "any except these."  So, a consonant is `[^aeiou]`
+    
+* Alternatives.  A vertical bar means "either."  For example `(A|a)dam` matches `Adam` and `adam`
+
+* Repeats
+
+     * Two simple patterns in a row, means those patterns consecutively.  Example: `M[aeiou]` means a capital M followed by a lower-case vowel.
+     
+     * A simple pattern followed by a `+` means "one or more times." For example `M(ab)+` means `M` followed by one or more `ab`.  
+     
+     * A simple pattern followed by a `?` means "zero or one time."
+     
+     * A simple pattern followed by a `*` means "zero or more times."
+     
+     * A simple pattern followed by `{2}` means "exactly two times."  Similarly, `{2,5}` means between two and five times, `{6,}` means six times or more.
+     
+* Start and end of strings.  For instance, `[aeiou]{2}` means "exactly two vowels in a row."
+
+    * `^` at the beginning of a regular expression means "the start of the string"
+    
+    * `$` at the end means "the end of the string."
+
+
+###문자열의 일부를 `mutate()`과 `gsub()`를 사용하여 바꾸기
+
+예를들어:
+
+숫자는 많은 경우 일반적으로 천단위를 ,로 표시한다. 예를들어, 다음은 위키피디아의 [public debt](http://en.wikipedia.org/wiki/Government_debt) 데이터이다. 
+
+```{r}
+head(Debt,3)
+```
+
+천단위가 ,로 분리된 데이터들을 연산에 사용하기 위해서는 ,를 분리해내야 할 필요가 있다.
+
+```{r}
+Debt %>% 
+  mutate( debt=gsub("[$,]|billion","",debt),
+          percentGDP=gsub("%", "", percentGDP))
+```
+
+
+####예시:
+
+`c("a","abb", "abbb","abbbb")`의 문자열에는 모두 매치되지만, 다음 벡터`c("ca","abbd")`의 문자열에는 매치되지 않는 패턴을 작성해보자.
+
+
+이렇게, 
+```{r}
+grepl("ab*",c("a","ab", "abb","abbb", "ca","abbd"))
+```
+혹은 이렇게,
+```{r}
+grepl("^ab*$",c("a","ab", "abb","abbb", "ca","abbd"))
+```
+혹은 이렇게 표현할 수 있다.
+```{r}
+grepl("(^a$|^ab$|^abb$|^abbb$)",c("a","ab", "abb","abbb", "ca","abbd"))
+```
+
+
+####또 다른 예시
+
+데이터 테이블 `CarRegistrations`은 다음과 같다:
+```{r}
+CarRegistrations <- data.frame(c("Joe Smith","Tim Allen"),c("Ford","Toyota"),c("Taurus","Prius"),c(2007,2011),c("metalic gray","blue"),c("337 HBQ","843 OSS"),c(98739,93134))
+names(CarRegistrations) <- c("owner","brand","model","model_year","color","plate","zip")
+CarRegistrations
+```
+
+
+당신의 직업은 경찰으로서, 뺑소니 사고가 접수된 상황을 가정하자. 증언에 의하면 차는 파란색이였으며, 번호판은 3 혹은 8로 시작하고, 그 다음은 O 혹은 Q이며, 그 다음 글자는 S 혹은 8이였다고 한다. 또한 사고가 일어난 지역은 Santa Barbara, CA (zipcode: 931)로 추정된다. 
+
+`filter()`를 이용하여 가진 정보를 regex으로 표현하면 다음과 같다.
+
+```{r} 
+CarRegistrations %>%
+  filter( grepl("blue", color), # blue car
+          grepl("^[38].*[OQ].*[S8].*", plate), # license plate
+          grepl("^931..$", as.character(zip)) # zip code
+          )
+```
+
+
+regex의 메타문자:
+
+메타문자(metacharacter)은 특별한 뜻이 담기어 문자열 양식을 나타내는데 쓰인다.
+
+`.` `\` `|` `(` `)` `[` `]` `{` `$` `*` `+` `?`
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture4/regex1.png)
+
+
+*character class*이라 불리는 `[]`는 '그 속의 문자열 중 하나'의 의미를 가진다. 예를들어, `[ab]`은 `a` 혹은 `b`를 의미한다.
+
+
+예시:
+```{r}
+grepl("[a$]", c("hello$bye", "hellobye$","adam"))  #$ has literal meaning inside []
+grepl("[a$]$", c("hello$bye","hellobye$", "adam")) #$ is metacharacter outside of []
+grepl("[a\\^]", c("5^"))
+```
+
+흔히 쓰여지는 패턴들에 대해서는 이미 built-in 패턴이 존재한다.
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture4/regex2.png)
+
+POSIX expressions 또한 character class의 특별한 한 종류이다. POSIX expressions은 해당 표현에 맞게 하나의 문자와 매치된다. 
+
+
+예시:
+
+```{r}
+x <- c ("a0b", "a1b","a12b","a&b")
+grepl("a[[:digit:]]b",x)
+```
+
+
+```{r}
+x <- c ("a0b", "a1b","a12b","a&b")
+grepl("a[[:digit:]]+b",x)
+```
+
+
+```{r}
+x <- c ("a0b", "a1b","a12b","a&b")
+grepl("a[^[:digit:]]+b",x)
+```
+
+
+
+```{r}
+x <- c (3,"5","a","b","?")
+grepl("[[:digit:]abc]",x)
+```
+
+##Discuss
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture4/iclick1.png)
+
+## 정리
+
+Regular expressions을 사용하는데에는 다양한 목적이 있다:
+
+* 목적1: 문자열에 패턴이 포함되는지를 확인하고 싶을 때는 `filter()` 와 `grepl()` 함수를 사용한다.
+
+1. grepl() 은 문자형 벡터에서 regex과 매치되는 부분을 찾고, 결과는 TRUE/FALSE의 Boolean 벡터로 반환한다.
+
+2. syntax: `grepl(regex,vec)`
+
+예시: 성경의 이름들로 구성된 데이터셋:
+```{r}
+BibleNames <- read.csv("http://tiny.cc/dcf/BibleNames.csv")
+head(BibleNames)
+```
+
+"bar", "dam", "lory"(중 하나라도)이 포함된 이름은?
+
+```{r}
+BibleNames %>%
+  filter(grepl("(bar)|(dam)|(lory)", name)) %>%
+  head()
+```
+
+
+* 목적2: 패턴의 일부를 다른 것으로 바꾸려면 `mutate()` 와 `gsub()`를 사용한다.
+details:
+
+1. `gsub()` 는 문자현 벡터에서 regex과 매치되는 부분을 찾아 매치된 모든 부분을 다른 어떤 것으로 바꾼다.
+ 
+2. syntax:`gsub(regex, replacement, vec)`
+
+```{r,echo=FALSE, include=FALSE}
+Debt <- data.frame(country=c("World","United States", "Japan"),debt=c("$56,308 billion", "$17,607 billion","$9,872 billion"), percentGDP=c("64%","73.60%","214.30%"))
+
+```
+
+아래의 데이터 테이블에서 숫자가 위치한 셀에 오직 숫자만이 표현되도록 바꿔보자.
+
+```{r}
+head(Debt)
+```
+
+```{r}
+Debt %>% 
+  mutate( debt=gsub("[$,]|billion","",debt),
+          percentGDP=gsub("%", "", percentGDP))
+```
+
+
+##Discuss
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture4/iclick-lec13.png)

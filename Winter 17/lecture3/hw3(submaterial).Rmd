@@ -1,0 +1,108 @@
+---
+title: "hw3(submaterial)"
+author: ""
+date: ""
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+---
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(printr)
+```
+*Source file* 
+```{r, results='asis', echo=FALSE}
+includeSourceDocuments()
+```
+<!-- Don't edit the material above this line -->
+
+```{r, echo=FALSE}
+show_answers <- TRUE
+knitr::opts_chunk$set(tidy=FALSE, message=FALSE)
+```
+<!-- Don't edit the material above this line -->
+
+### example
+
+Lets examine the wide iris data table:
+
+```{r}
+head(iris)
+```
+
+Suppose you want to make the following plot:
+
+
+```{r}
+iris.tidy <- iris %>%
+  gather(key, Value, -Species) %>%
+  separate(key, c("Part", "Measure"), "\\.") 
+
+ggplot(iris.tidy, aes(x = Species, y = Value, col = Part)) +
+  geom_jitter() +
+  facet_grid(. ~ Measure)
+```
+
+The data table `iris` isn't gyph ready. Here is the glyph ready table:
+
+```{r}
+iris.tidy <- iris %>%
+  gather(key, Value, -Species) %>%
+  separate(key, c("Part", "Measure"), "\\.") 
+iris.tidy %>% head()
+  
+  
+```
+
+
+*step 1:* Use gather
+
+```{r}
+iris_narrow <- iris %>%
+  gather(key, Value, -Species) %>%  #here -Species means all columns except Species
+  head()
+iris_narrow %>% head()
+```
+
+*step 2:* Use the data verb separate()
+
+```{r}
+iris_narrow_sep <- iris_narrow %>% separate(key, into=c("Part", "Measure"), sep="\\.")
+head(iris_narrow_sep)
+```
+
+###Show how we use seperate, gather and spread to go from the top to the bottom table:
+
+```{r}
+unloadNamespace('printr')
+iris<- iris %>% mutate(Flower=1:nrow(iris))
+head(iris)
+```
+
+
+```{r}
+iris.wide <- iris %>%
+  gather(key, value, -Species, -Flower) 
+iris.wide %>% head()
+```
+
+```{r}
+iris.wide <- iris %>%
+  gather(key, value, -Species, -Flower) %>%
+  separate(key, c("Part", "Measure"), "\\.") 
+iris.wide %>% head()
+```
+
+```{r}
+iris.wide <- iris %>%
+  gather(key, value, -Species, -Flower) %>%
+  separate(key, c("Part", "Measure"), "\\.") %>%
+  spread(Measure, value) 
+iris.wide %>% head()
+```

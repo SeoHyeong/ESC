@@ -1,0 +1,729 @@
+---
+title: "세미나(3)"
+author: "SeoHyeong Jeong"
+date: "2018/01/18"
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+---
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(printr)
+library(ggplot2)
+```
+*Source file* 
+```{r, results='asis', echo=FALSE}
+includeSourceDocuments()
+```
+<!-- Don't edit the material above this line -->
+
+```{r, echo=FALSE}
+show_answers <- TRUE
+knitr::opts_chunk$set(tidy=FALSE, message=FALSE)
+```
+
+##학습목표
+1. Joins and Relational Databases
+2. `tidyr` - Wide and Narrow
+3. `ggplot2`(2)  
+*1) *Aesthetics vs. Fixed Attributes  
+*2) *Theme  
+*3) *Loess(Locally Weighted Linear Regression)  
+
+* reference: UC Berkeley Stat 133 Data Computing By [Adam Lucas](http://rpubs.com/alucas) 
+
+## 1. Joins and Relational Databases  
+데이터 분석에 있어 하나의 데이터 테이블을 사용하는 경우는 드물다. 많은 경우 서로 연관있는 다수의 데이터 테이블을 합쳐 사용하게 되는데, 이러한 서로 관련있는 다수의 데이터 테이블을 *relational data*이라 한다. 
+
+**예시: Grades and Enrollment**
+
+두 데이터 테이블 `Grades` 와 `Courses` 한 학교에서의 grade와 course에 관해 연관된 정보를 제공한다.
+
+```{r}
+Grades <- read.csv("http://tiny.cc/mosaic/grades.csv")
+```
+```{r echo=FALSE}
+set.seed(101)
+Grades %>% sample_n(size=4)
+```
+
+```{r}
+Courses <- read.csv("http://tiny.cc/mosaic/courses.csv")
+```
+```{r echo=FALSE}
+set.seed(101)
+Courses %>% sample_n(size=3)
+```
+
+여기서 기본키(primary key)와 외래키(foreign key)는 `sessionID`이다.
+
+**기본키(primary key)**  
+하나의 값 혹은 여러 값의 조합으로 테이블의 각 case를 유일하게 식별
+
+**외래키(foreign key)**  
+또 다른 테이블에 있는 유일하게 케이스를 식별하는 하나의 값(혹은 여러 값의 조합). 즉 외래키는 다른 테이블에 존재하는 테이블의 기본키이다.
+ 
+*join*이라는 data verb는 *left table*와 *right table*을 합친다. 
+
+*left table*이 보통 기본 테이블이고 *right table*은 *left table*에서 얻을 수 없는 정보를 가진 테이블이 된다.
+
+
+## 예시: Average class size
+
+**목표**: 학생 별로 학급의 평균 크기를 찾는다.
+
+* 학생정보(`sid`)는 `Grades`테이블에 존재한다.
+* `enroll`은 `Courses` 테이블에 존재한다.
+* `sessionID`는 두 테이블 모두에 존재한다.
+
+Courses 테이블에서 enrollment에 대한 정보를 Grades 테이블로 가져와야 한다.
+
+
+```{r}
+Grades %>%
+  left_join(Courses) %>% sample_n(size=4)
+```
+
+```{r}
+Courses %>%
+  left_join(Grades) %>% sample_n(size=4)
+```
+
+
+
+`Courses` 와 `Grades`가 join되면, 다음과 같이 평균 학급 수를 찾을 수 있다.
+
+```{r}
+AveClassEachStudent <- Grades %>% 
+  left_join(Courses) %>%
+  group_by(sid) %>%
+  summarise(ave_enroll = mean(enroll, na.rm=TRUE))
+```
+```{r echo=FALSE}
+AveClassEachStudent %>% sample_n(3) # look at just a few
+```
+
+
+## case 사이의 match
+
+* **사용자**가 직접 *primary* 와 *foreign* key를 지정해야 한다.
+* Cases들은 match를 만들기 위해서, 반드시 *똑같은* 값의 *primary* key 와 *foreign* key를 가지고 있어야 한다.
+
+**예시**:
+```{r echo=1:2}
+Grades %>% 
+  left_join(Courses, by = c(sessionID = "sessionID")) %>%
+  head(4)
+```
+
+`by=`의 default 값은 양쪽의 테이블에서 같은 이름을 가지고 있는 변수이다. 하지만 직접 눈으로 확인하지 않는 한, default값을 신뢰할 수 없다.
+
+
+```{r echo=1:2}
+Grades %>% 
+  left_join(Courses) %>%
+  head(4)
+```
+
+
+```{r}
+Grades %>% 
+  left_join(Courses, by="sessionID") %>%
+  head(4)
+```
+
+
+
+
+## 예시 (nycflights)
+
+```{r}
+#install.packages("nycflights13")
+library(nycflights13)
+```
+
+데이터 테이블 `nycflights13::flights`에서 몇 가지 변수를 선택하여 join 예시를 살펴보자.
+```{r,echo=TRUE}
+flights2 <- flights %>% 
+  select(year:day, hour, tailnum, carrier)
+head(flights2,2)
+```
+
+또 다른 데이터 테이블 `airlines`은 약자로 표현된 항공사 정보의 full name을 알 수 있도록 해준다.
+
+```{r}
+head(airlines,2)
+```
+
+또 다른 `weather`이라는 데이터 테이블은 NYC 공항의 시간당 날씨 정보를 알려준다.
+
+```{r}
+head(weather,2)
+```
+
+세 데이터 테이블의 관계는 다음과 같다:
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/relational_databases.png)
+
+
+`flights`데이터는 `carrier`변수를 통해 `airlines` 데이터와 연결되어 있다.
+
+`flights`데이터는 `origin`(the location), `year`, `month`, `day` 그리고 `hour`(the time)를 통해 `weather`데이터와 연결되어 있다.
+
+만약 `flight2`데이터에 존재하는 항공사 이름들의 full name을 얻고 싶다면 `airlines` 과 `flights2` 데이터를 `left_join()`으로 합칠 수 있다:
+
+```{r}
+flights2 %>%
+  left_join(airlines, by="carrier") %>%
+  head(3)
+```
+
+`left_join()`의 결과는 flight2에 새로 생긴 `name` 변수이다.
+
+### joins 함수 이해하기
+
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/joins1.png)
+
+**키(key)**  
+위의 열에서 색칠된 부분이 "키"에 해당한다. 키는 테이블 간 열을 합칠 때 사용된다. 
+
+**값(value)**  
+회색으로 칠해진 부분은 "값"에 해당한다.
+
+위의 그림에서는 키와 값이 각각 하나씩 존재하지만, 여러개 존재할 수도 있다.
+
+join은 x 테이블의 각각의 열을 y 테이블의 열과 연결하는 것이다. 아래의 다이어그램은 케이스간 match가 어떻게 이루어지는지 보여준다.
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/joins2.png)
+
+실제 `join()`에서, match는 점으로 표현된다. 점의 개수는 match의 수를 의미하고 이는 곧 join 결과에서 그만큼의 열이 생성됨을 의미한다.
+
+#### Inner Join
+
+join 중 가장 단순한 형태가 inner join이다. inner join은 두 테이블의 key가 값을 때 match가 일어나는 형태이다.
+
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/joins3.png)
+
+inner join의 output은 key, x 테이블의 값(values), y 테이블의 값(values)이 들어있는 새로운 데이터 프레임이다. 명령에서는 `by=`를 이용하여 dplyr에 어떠한 변수가 key로 사용되는지를 알려준다.
+
+```{r,eval=FALSE}
+x %>% 
+  inner_join(y, by="key")
+```
+
+inner join에서 match되지 못한 열들은 결과에 나열되지 않는다. 이는 즉, 데이터 분석에 inner join이 사용될 때, 손실되는 케이스가 있음을 의미하고 따라서 대부분의 데이터 분석에서 적절한 join 방법은 아니다.
+
+
+#### Outer Joins
+
+inner join은 두 테이블 모두에 나타난 관측값만을 결과로 전송한다. outer join의 경우 최소 한 테이블에 나타난 관측값 모두를 결과로 전송한다. outer join에는 3가지 종류가 있다.
+
+* **left join** 은 `x`의 모든 관측값을 유지한다.
+* **right join** 은 `y`의 모든 관측값을 유지한다.
+* **full join** 은 `x` 와 `y`에 나타난 모든 관측값을 유지한다.
+
+joins은 key를 중심으로 이루어지며, match되는 key가 없는 경우 `NA`를 반환한다.
+
+다이어그램으로 표현하면:
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/joins4.png)
+
+이 중 가장 흔히 쓰이는 것은 left join이다: left join에서는 기존의 데이터의 모든 정보가 그대로 반환되기 때문에 부가적인 정보를 기존의 데이터 테이블에 join할 때 유용하게 사용된다.
+
+따라서 left join이 default join으로 사용되어야 한다: 다른 join을 선호할 특별한 이유가 없는 한 left join을 사용하는 것이 좋다. 만약 `NA`가 있어서는 안되는 경우, 특별히 inner join을 사용할 수는 있지만 특별한 경우가 아니라면 기존 데이터에 손실이 없는 left join을 사용하는 것이 기본이다.
+
+Venn diagram으로 여러 joins을 살펴보면:
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/joins5.png)
+
+
+## 예시
+
+두 데이터 테이블이 있다고 가정하자:  
+
+```{r datasetup,echo=FALSE, message=FALSE}
+set.seed(42)
+codes <- sort(round( runif(10,min=10000,max=99999)))
+Left <- data.frame( clinicName=LETTERS[1:9],
+                    postalCode=codes[c(1,2,3,2,4,5,6,6,7)],
+                    y=9:1,x=1)
+Right <- data.frame( postalCode=codes[c(2,1,1,9,8,4)], over65=round(runif(6,0,100))/100,y2=9:4,x2=2)
+Connections <- inner_join( Left, Right ) 
+JustMatches <- semi_join( Left, Right )
+LL <- select( Left, clinicName, postalCode )
+RR <- select( Right, postalCode, over65 )
+```
+
+* Left: medical clinics의 정보를 담고 있다. postal codes가 primary key이다. 변수: `clinicName`, `postalCode`.  
+
+```{r,echo=FALSE}
+Left %>% select(clinicName, postalCode )
+```
+
+* Right: postal codes가 foreign key이다. 변수는 postal code 지역의 인구에 대한 정보를 제공한다: `postalCode`, `over65`, etc.
+```{r, echo=FALSE}
+Right %>% select(over65, postalCode  )
+```
+
+아래의 다이어그램은 left와 right 테이블의 cases가 어떻게 연결되어 있는지를 시각적으로 보여준다. 그리고 line은 match를 의미한다. 총 5번의 match가 있고 그중 중복되는 case도 존재하는 것을 볼 수 있다. match되지 않은 case 또한 양측의 테이블에 존재한다.
+
+```{r exampleplot,echo=FALSE}
+ggplot() + geom_text(data=Left, 
+                      aes(x=x,y=y,label=postalCode)) +
+           geom_text(data=Left, 
+                      aes(x=x-1,y=y,label=clinicName)) +
+           geom_text(data=Right, 
+                      aes(x=x2,y=y2,label=postalCode)) +
+           geom_text(data=Right, 
+                      aes(x=x2+1,y=y2,label=over65)) + 
+           geom_segment(data=Connections, size=3, alpha=.5, 
+               aes(x=x+.13,y=y,xend=x2-.13,yend=y2)) +
+  theme(
+    plot.background = element_blank()
+   ,panel.grid.major = element_blank()
+   ,panel.grid.minor = element_blank()
+   ,panel.border = element_blank()
+  ) +
+  scale_x_continuous(breaks=NULL,limits=c(-.5,3.5)) +
+  scale_y_discrete(breaks=NULL) + xlab("") + ylab("")
+
+```
+
+*inner join* 은 match가 된 짝들을 반환한다. clinic A는 두 번의 match가 있는 것을 볼 수 있는데, 이는 우측의 테이블에서 clinc A와 두 번의 match가 발생하였기 때문이다. 
+
+
+```{r, message=FALSE}
+LL %>% inner_join(RR)
+```
+
+*outer join* 은 match가 없는 cases까지도 포함하여 결과로 반환한다. 세부 디테일은 left, right, full join 중 어떤 것을 사용하는지에 따라 달라진다.
+
+##### left table에서 match되지 않은 결과들을 반환할 때
+
+```{r, message=FALSE}
+LL %>% left_join( RR)
+```
+
+##### right table에서 match되지 않은 결과들을 반환할 때
+
+```{r, message=FALSE}
+LL %>%  right_join(RR) 
+```
+
+##### both tables에서 match되지 않은 결과들을 반환할 때
+
+```{r, message=FALSE}
+LL %>% full_join(RR)
+```
+
+
+## 2. `tidyr` - Wide and Narrow
+`tidyr` 패키지의 `tidyr::narrow()`와 `tidyr::gather()` 두 가지 data verbs를 살펴보자.
+
+데이터 테이블은 wide 혹은 narrow의 형태로 표현될 수 있다. 각각은 각각의 이점이 있다.
+```{r,echo=FALSE}
+BP_wide <- data.frame( subject=c("BHO","GWB","WJC"),
+                    before=c(120,115,105),
+                    after=c(160,135,145))
+BP_narrow <- data.frame( subject=c("BHO","GWB","WJC","GWB","WJC","BHO"), when=c("before","before","after","after","before","after"), sbp=c(160,115,145,135,105,160))
+
+```
+
+Wide format의 경우 각 환자 별 `sbp` (systolic blood pressure)의 전과 후 차이를 도출하는데 유용하다. 하지만 세미나(1)에서 살펴본 내용에 따르면 아래의 데이터는 tidy하지 않다.
+
+```{r}
+BP_wide
+
+```
+
+아래는 narrow format (tidy)이다. 종종 그래프를 그리기 위해서 우리는 데이터를 narrow format으로 표현해야할 경우가 있을것이다.
+
+```{r}
+BP_narrow
+```
+
+
+
+data verbs `spread()` 와 `gather()`이 wide format과 narrow format 사이를 변환시켜준다.
+
+### `gather()`: *wide* -> *narrow*
+
+데이터 셋의 행(column)의 이름이 변수의 이름이 아닌, 변수의 값인 경우 우리는 데이터가 tidy하지 못하다는 문제를 가지게 된다. 이때 우리는 `gather()`을 사용한다. 변수의 이름이 아닌 값을 가진 행들은 새로운 변수를 통해 정리되어야 할 필요가 있다. 이 작업을 수행하기 위해서 아래의 3가지 매개변수(parameters)가 필요하다. 
+
+
+1. `key`: column이 변수의 이름이 아닌 값을 가지고 있는 경우, 변수 값을 포괄할 새로운 이름이 필요하다. 이때의 새로운 이름이 key가 된다. 위의 예시의 경우 before과 after이 column 이름 위치에 존재하지만 변수의 이름이 아닌 값에 해당한다. 따라서 새로운 이름인 `when`을 지어주기로 하자. 따라서  `key`는 `when`이 된다.
+
+2. `value`: 셀에 있는 값들을 통합할 이름. 즉 wide 테이블에서 before과 after 행에 존재하는 값들을 부를 이름을 의미한다. 여기서 이들을 `sbp`라고 하기로 하자.
+
+3. 변수가 아닌 값을 대표하는 column(행)의 집합. 여기서는 `before` 과 `after`.
+
+```{r}
+BP_narrow1 <-  BP_wide %>%
+  gather(key= when, value = sbp, `before`, `after`)  # before or after are legal names so it isn't necessary to use backticks (but it doesn't hurt)
+BP_narrow1
+```
+
+
+### `spread()`: *narrow* -> *wide*
+
+*Spreading* 은 *gathering*과 반대의 작업을 수행한다. 관측값들이 여러 열에 걸쳐 산포되어 있을 때 spread를 사용한다. 이를 수행하기 위해서는 아래의 2가지 매개변수(parameters)가 필요하다:
+
+1. `key`: 새로 형성할 데이터 테이블의 column 이름으로 만들고 싶은 값이 들어 있는 기존 테이블의 column. 여기서는 `when`이 새로 만들 테이블에서 column의 이름이 될 after과 before을 포함하고 있으므로 `key`가 된다.
+
+2. `value`: `key` 맞게 정렬되어야 할 값들을 가진 기존 테이블에서의 column의 이름. 여기서는 새롭게 만들 테이블에서 after과 before의 키 아래 `sbp`값들이 값으로 정렬될 것이므로 `sbp`값을 값으로 가지고 있는 `sbp` column이 `value`가 된다.
+
+```{r}
+BP_wide1 <-  BP_narrow %>% 
+  spread(key= when, value = sbp)
+BP_wide1
+```
+
+###Discuss
+
+#### 1. 아래와 같은 데이터 테이블을 임의로 만들었다고 하자.
+
+```{r}
+a <- c("Afghanistan","Brazil", "China")
+b <- c(745,37737,212258)
+c <- c(266,80488,213766)
+df_wide <- data.frame(a,b,c)
+names(df_wide) <- c("countries","1999", "2000")
+df_wide
+```
+
+테이블을 *gather*을 사용하여 tidy form으로 만들고자 한다. 
+
+
+```{r, echo=FALSE}
+df_narrow <- df_wide %>% 
+  gather( key = year, value = population, `1999`, `2000`)
+df_narrow
+```
+
+아래 어떠한 명령이 들어가야 할까:
+
+```{r,eval=FALSE}
+df_narrow <- df_wide %>% 
+  gather(fill__this__out)
+df_narrow
+```
+
+
+####2. 아래의 데이터 테이블은 narrow 형태 인가 wide 형태인가? 다른 형태로 바꾸어보자. (narrow 형태이면 wide 형태로, vice versa)
+
+```{r,echo=FALSE}
+Baby_narrow <- BabyNames %>% 
+  filter(name %in% c("Sue","Mary","Allen")) %>%
+  group_by(name,sex) %>%
+  summarise(total=sum(count))
+Baby_wide <- Baby_narrow %>% spread(key=sex, value= total )
+Baby_wide 
+```
+
+
+```{r, echo=FALSE}
+Baby_wide %>% gather(key=sex, value=value, `F`, `M`)
+```
+
+####3. 아래의 결과는 옳은가?
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/iclick1.png)
+  
+####4. Here are two equivalent data tables. What is the "key" variable in the conversion?
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/iclick2.png)
+
+
+
+```{r,warning=FALSE, include=FALSE}
+unloadNamespace('printr')
+BP_wide <- data.frame( subject=c("BHO","GWB","WJC"),
+                    before=c(120,115,105),
+                    after=c(160,135,145))
+```
+
+
+
+```{r, include=FALSE}
+BP_wide
+```
+
+
+```{r, warning=FALSE, include=FALSE}
+BP_wide %>% 
+  gather(key=when, value=sbp, subject,before,after)
+```
+
+
+## 3. `ggplot2`(2)
+
+###1) Aesthetics versus fixed attributes  
+
+Aesthetics은 그래프의 특징 중 변수들과 연관된 것들이다. (ex. col=as.factor(cyl))
+
+Attribute은 그래프의 특징 중 변수들과 연관이 없는 것들이다. 따라서 특정한 고정 값을 가진다. (ex. col="red")
+
+####예시
+```{r}
+mtcars %>% ggplot(aes(x=wt,y=mpg)) + geom_point(aes(col=as.factor(cyl))) 
+```
+
+```{r}
+mtcars %>% ggplot(aes(x=wt,y=mpg)) + geom_point(col="red") 
+```
+
+Note: attributes는 특정하게 정해진 값이기 때문에 이에 대해 legend가 존재하지 않는다.
+
+
+###2) Theme  
+theme은 ggplot2에서 **non-data**를 사용자의 뜻에 따라 변경할 수 있게 해준다.  
+예를들어 할 수 있는 것들에는:
+
+* 축 라벨의 글자크기 조정  
+* grid lines을 삭제  
+* plot에 이름을 표시  
+* legend을 그래프의 안으로 위치 변경  
+* 그래프의 배경색 변경  
+
+theme의 변경은 그래프 자체가 보이는 방식을 바꾸지만 data와는 independent하다. 이러한 것들을 _theme elements_ (i.e. aspects of a ggplot object that are capable of modifying its appearance but are neither directly related to data nor aesthetics associated with data)라고 부른다.
+
+아래의 그래프로 시작해보자:
+
+```{r, width=3,height=5}
+p <- ggplot2::mpg %>% ggplot( aes(x = cty, y = hwy, color = factor(cyl))) +
+  geom_jitter() +
+  labs(
+    x = "City mileage/gallon",
+    y = "Highway mileage/gallon",
+    color = "Cylinders"
+  )
+p
+```
+
+
+`ggplot2`의 theme은 다음의 것들로 구성되어 있다:
+
+* _theme elements_, data와는 무관한 그래프의 특징. 예를들어 축에 표현되는 텍스트 (ex: `axis.text`);
+
+* _theme element functions_, theme elements를 변경할 수 있도록 해주는 함수 (ex: `axis.text = element_text(size = 14)`);
+
+* _theme functions_, 그래프의 전체적인 테마를 바꾸기 위한 함수
+
+
+```{r}
+p + 
+  theme(axis.text = 
+          element_text(colour = "blue", size = 15, face = "italic"), 
+        axis.text.y = 
+          element_text(size = rel(0.7), angle = 90))
+```
+
+
+
+* ready made _theme()_ functions, theme_grey(), theme_bw(), theme_igray()와 같이 이미 만들어진 테마 함수들
+
+
+```{r}
+library(ggthemes)  #in console: install.packages("ggthemes") to install
+p  + theme_igray()
+```
+
+만약 색을 바꾸고 싶은 경우 `scale_colour_brewer()` 함수를 사용하여 원하는 팔레트를 지정할 수 있다.  
+[ggplot2 help](http://docs.ggplot2.org/current/).
+
+```{r}
+p + scale_colour_brewer(palette = "Dark2") 
+```
+
+#### Theme elements and theme element functions
+
+theme elements는 대응하는 element function을 이용하여 그래프의 특정 오브젝트가 가지는 특징을 바꿀 수 있다.
+
+* `element_text()`  
+* `element_line()`  
+* `element_rect()` 
+* `element_blank()`
+
+`element_xx()`의 함수는 theme element의 attributes를 변형시킬 수 있다 (e.g., color, text size).
+
+그래프에서 다음의 사항을 변경하고 싶을 때:
+
+* 축 라벨의 글씨 크기를 크게  
+* minor grid lines을 제거  
+* legend을 그래프의 공간 안으로 이동  
+* 그래프 공간의 배경색을 변경  
+
+다음의 명령은 위의 변경사항을 실행한다:
+
+```{r}
+p  +
+  theme(
+    axis.text = element_text(size = 14),
+    legend.background = element_rect(fill = "white"),
+    legend.position = c(0.14, 0.70),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "navy")
+  )
+```
+
+theme element functions를 자세히 살펴보자:
+
+##### `element_text()`
+
+목적: label과 heading에 관여.
+
+```{r,echo=FALSE}
+data.frame(  Argument=c("family", "face", "colour","size","hjust","vjust","angle", "lineheight"), Description=c("font family","font face", "font color", "font size", "horizontal justification", "vertical justification", "text angle", "line height"), Default=c("“”", "plain","black", "10","0.5","0.5","0","1.1"))
+```
+
+##### `element_line()`
+
+목적: To draw lines and segments such as graphics region boundaries, axis tick marks and grid lines.
+
+```{r,echo=FALSE}
+data.frame( Arument=c("colour","size","linetype"),Description=c("line color","line thinkness","type of line"), Default=c("black",0.5,1))
+```
+
+
+##### `element_rect()`
+
+목적: To draw rectangles. It is mostly used for background elements and legend keys.
+
+```{r,echo=FALSE}
+data.frame(Arguement=c("fill","colour","size","linetype"),Description=c("fill color","border color","thinkness of border line", "type of border line"), Default=c("none", "black",0.5,  1))
+```
+
+##### `element_blank()`
+
+목적: To draw nothing.
+
+Arguments: 없음.
+
+
+#### 예시
+
+다음 그래프를 보고 명령어를 이해해보라.
+
+
+```{r,echo=TRUE}
+# Use theme() to modify theme elements
+p + labs(title = "Highway vs. city mileage per gallon") +
+  theme(
+    axis.text = element_text(size = 20),
+    plot.title = element_text(size = 20,color = "red"),
+    legend.key = element_rect(fill = "black"),
+    legend.background = element_rect(fill = "white"),
+    legend.position = "right",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "grey40")
+  )
+```
+
+
+
+##Theme functions
+
+theme functions을 이용하면 다른 사용자가 이미 만들어준 theme을 그래프에 적용시킬 수 있다.
+
+```{r}
+library(ggthemes)  #need to install ggthemes
+mpg %>% ggplot( aes(x = cty, y = hwy, color = factor(cyl))) +
+  geom_jitter() +
+  labs(
+    x = "City mileage/gallon",
+    y = "Highway mileage/gallon",
+    color = "Cylinders"
+  ) + theme_igray()
+
+```
+
+
+#### Colors in R
+
+[colors](http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf)
+
+#### hexidecimal color code
+
+색은 RGB의 16진법으로 표현된다. 예를들어, "#0066CC"의 경우 처음 두 자리수는 빨간색의 정도, 그 다음 두 자리는 초록색의 정도, 그리고 마지막은 파란색의 정도를 의미한다. 각각의 정도는 16진법으로 00에서 FF까지로 표현된다. 예를들어 “#FFFFFF”은 하얀색이며, “#990000” 은 짙은 빨간색이다.
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture3/hexadecimal.png)
+
+예시:
+
+```{r}
+set.seed(955)
+# Make some noisily increasing data
+dat <- data.frame(xvar = 1:20 + rnorm(20,sd=3),
+                  yvar = 1:20 + rnorm(20,sd=3))
+
+ggplot(dat, aes(x=xvar, y=yvar)) +
+    geom_point(shape=1) +    # Use hollow circles
+    geom_smooth(method=lm, fill="#013A59") + # Add linear regression line
+    theme_igray()  #default theme
+```
+
+
+###3) Loess(Locally Weighted Linear Regression)
+
+
+####Linear Regression
+```{r}
+mtcars %>% ggplot(aes(x=wt, y=mpg)) +geom_point() +geom_smooth(method="lm") + geom_point(aes(x=mean(wt),y=mean(mpg)),size=5)
+```
+
+
+#### Loess(Locally Weighted Linear Regression)
+
+두 개의 연속형 변수 X 와 Y가 있다. 예를들어, mtcars 데이터 테이블에서, X=wt 와 Y=mpg.
+
+```{r}
+mtcars %>% ggplot(aes(x=wt, y=mpg)) +geom_point() +geom_smooth(se=FALSE, method = "loess")
+```
+
+*Loess 알고리즘*
+
+$x_0$를 하나의 관측치라고 하자. 예를들어, $x_0=3.435$ (3435파운드)이다.
+
+
+1. $x_0$근방의$x_i$들의 일부를 모은다. 이때의 일부를 `span`이라 한다.  
+예를들어, 만약 32개의 자동차 중 `span=.4`이라면 우리는 중량 3.435 근방의 가장 가까운 13개 (정확히는 0.4*32=12.8)의 관측치를 찾는다 (아래 파란색으로 표현). 
+
+```{r,echo=FALSE}
+mtcars %>% mutate(new=(wt>3 & wt <3.8)) %>% ggplot( aes(x=wt, y=mpg)) +geom_point(aes(col=new),size=3) + geom_vline(xintercept =3.435) 
+```
+
+2. $K_{i0}=K(x_i,x_0)$를 이용하여 각각의 point에 가중치를 부여한다. $x_0$로부터 가장 먼 것은 0의 가중치를 가지고, 가까이 있을 수록 높은 가중치를 가진다.
+
+위의 예시에서는, 중량이 3.435 근방인 경우 1에 가까운 가중치를, 그리고 멀어질 수록 낮은 가중치를 가진다. 모든 빨간 점들은 가중치가 0이다.
+
+3. $\widehat{\beta_0}$와 $\widehat{\beta_1}$ 중
+$$ \sum_{i=1}^{n} K_{i0}(y_i-\beta_0 -\beta_1x_i)^2. $$ 를 최소화하는 값을 구한다. simple linear regression과 다른 점은 여기에 가중치$K_{i0}$가 포함된다는 것이다. 
+
+4. $x_0$의 적합값: $$\widehat{M}(x_0)=\widehat{\beta_0} + \widehat{\beta_1}x_0$$
+
+```{r,echo=FALSE}
+mtcars %>% mutate(new=(wt>3 & wt <3.8)) %>% filter(new==TRUE) %>% ggplot( aes(x=wt, y=mpg)) +geom_point(col="darkturquoise",size=3) + geom_vline(xintercept =3.435) +geom_smooth(method="lm",se=FALSE)
+
+
+```
+
+이러한 절차를 데이터셋에 주어진 모든 $x_0$에 대하여 실행한다. 그리고 $\widehat{M}(x_0)$ point를 연결시킨다. 우리는 각각의 $x_0$에 대하여 서로 다른 $\widehat{\beta_0}$ 와 $\widehat{\beta_1}$ 를 얻게 된다. (점들을 어떻게 연결하는지에 대한 구체적인 내용은 생략) 여기서 우리가 이해해야 할 점은 만약 `span`이 0에 가깝다면 regression line의 정확성(accuracy)은 아주 작은 범위 내에서 한정된다. 따라서 각각의 관측치마다 regression line의 방향이 바뀔 것이고, 그것이 wiggly한 직선을 형성한다. 만약 `span`이 1에 가깝다면 regression line은 넓은 범위의 관측치에 대해 정확할 것이고, Loess 커브는 직선에 가깝게 형성된다.
+
+```{r}
+mtcars %>% ggplot(aes(x=wt, y=mpg)) +geom_point() +stat_smooth(se=FALSE,method="loess", span=.4)
+```
+
+
+```{r}
+mtcars %>% ggplot(aes(x=wt, y=mpg)) +geom_point() +stat_smooth(se=FALSE,method="loess", span=.8)
+```
+
+Loess방법은 분포에 대한 아무런 가정이 없다(linearity의 가정이 없음)는 점에서 _non parametric_ 방법에 해당한다.

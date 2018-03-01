@@ -1,0 +1,219 @@
+---
+title: "hw 4"
+author: ""
+date: ""
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+
+library(DataComputing)
+library(mosaicData)
+show_answers <- FALSE
+knitr::opts_chunk$set(tidy=FALSE, message=FALSE)
+```
+
+## 1. Bike Renting program
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture4/biking.png)
+In this miniproject you’ll examine some factors that may influence the use of bicycles in a bike-renting program. The data come from Washington.
+
+Two data tables are available:
+
+* `Stations` gives the locations of the bike rental stations.
+* `Trips` contains records of individual rentals.
+
+
+You can access the data like this.
+```{r include=FALSE}
+
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+library(printr)
+library(lubridate)
+```
+
+```{r}
+Stations <- mosaic::read.file("http://tiny.cc/dcf/DC-Stations.csv")
+data_site <- "http://tiny.cc/dcf/2014-Q4-Trips-History-Data-Small.rds" 
+Trips <- readRDS(gzcon(url(data_site)))
+```
+The `Trips` data table is a random subset of 10,000 trips from the full quarterly data.
+
+###Time of day
+It’s natural to expect that bikes are rented more at some times of day than others. The variable `sdate` gives the time (including the date) that the rental started.
+
+```{r, echo=FALSE}
+head(Trips,3)
+```
+
+
+1. A density plot of the events versus sdate. Your plot should look like:
+
+```{r}
+Trips %>% 
+  ggplot(aes(x = sdate)) + 
+  geom_density()
+```
+
+
+2. A density plot of the events versus time of day. You can use `lubridate::hour()`, and `lubridate::minute()` to extract the hour of the day and minute within the hour from `sdate`, e.g.
+
+```{r, eval=FALSE}
+Trips <- Trips %>% 
+  mutate(time_of_day = 
+lubridate::hour(sdate) + lubridate::minute(sdate) / 60) %>%
+  ... further processing ...
+```
+
+```{r, eval=FALSE}
+Trips <- Trips %>% 
+  mutate(time_of_day = 
+lubridate::hour(sdate) + lubridate::minute(sdate) / 60)
+  Trips %>% head(3)
+```
+
+```{r, echo=FALSE, eval=FALSE}
+Trips %>% 
+  ggplot(aes(x=time_of_day)) + geom_density() 
+```
+
+
+3. Facet (2) by day of the week. (Use `lubridate::wday()` to generate day of the week.)
+
+
+```{r, echo=FALSE, eval=FALSE}
+Trips <- Trips %>% 
+  mutate( day_of_week=lubridate::wday(sdate)) 
+head(Trips,3)
+```
+
+```{r, echo=FALSE, eval=FALSE}
+Trips %>%
+  ggplot(aes(x=time_of_day)) + geom_density() + facet_grid(day_of_week~.)
+```
+
+
+4. Set the `fill` aesthetic for `geom_density()` to the `client` variable. You may also want to set the`alpha` for transparency and `color=NA` to suppress the outline of the density function.
+
+* `client` describes whether the renter is a regular user (level `Registered`) or has not joined the bike-rental organization (`Causal`)
+
+```{r, echo=FALSE, eval=FALSE}
+Trips %>% 
+  ggplot(aes(x=time_of_day)) + geom_density(aes(fill=client),alpha=.5, color=NA) + facet_grid(day_of_week~.)
+```
+
+
+5.Same as (4) but using `geom_density()` with the argument `position = position_stack()`.
+
+```{r, echo=FALSE, eval=FALSE}
+Trips %>% 
+  ggplot(aes(x=time_of_day)) + geom_density(aes(fill=client),alpha=.5, color=NA, position=position_stack()) + facet_grid(day_of_week~.)
+```
+
+
+6. Rather than faceting on day of the week, consider creating a new faceting variable like this:
+```{r, echo=FALSE, eval=FALSE}
+Trips <- Trips %>% 
+mutate(wday = ifelse(lubridate::wday(sdate) %in% c(1,7), "weekend", "weekday")) 
+
+head(Trips,3)
+```
+
+```{r, eval=FALSE}
+mutate(wday = ifelse(lubridate::wday(sdate) %in% c(1,7), "weekend", "weekday")) 
+```
+
+Your plot should look like:
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture4/biking example.png)
+```{r, echo=FALSE, eval=FALSE}
+
+Trips%>%
+  ggplot(aes(x=time_of_day)) + geom_density(aes(fill=client),alpha=.5, color=NA, position=position_stack()) + facet_grid(.~wday)
+```
+
+
+### Trip Distance
+
+How does the start-to-end trip distance depend on time of day, day of the week, and client?
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture4/distance.png)
+
+1. Make two copies of `Stations`, which we’ll call `Left` and `Right`. Left will have names `sstation`, `lat`, and  `long`. `Right` will have names `estation`, `lat2`, and `long2`. The other variables, `nbBikes` and  `nbEmptyDocks` should be dropped. Use the function `dpylr::rename()` to do the renaming of `name`,`lat`, and  `long` (i.e. `dyplyr::rename(sstation=name)`).
+
+```{r, echo=FALSE, eval=FALSE}
+head(Stations,3)
+Left <- Stations %>% select(name,lat,long) %>% rename(sstation=name)
+Right <- Stations %>% select(name,lat,long) %>% rename(estation=name, lat2=lat,long2=long)
+head(Left,3)
+head(Right,3)
+```
+
+2. Join `Left` and `Right` with a full outer join. This is a join in which every case in `Lef`t is matched to every case in `Right`. You can accomplish the full outer join with `Left%>% merge(Right,all=TRUE)`.
+
+```{r, echo=FALSE, eval=FALSE}
+Joined <- Left%>% merge(Right,all=TRUE)
+head(Joined,3)
+```
+
+Of course, with the latitude and longitude of each station, you have enough information to calculate the distance between stations. This calculation is provided by the `haversine()` function, which you can load with
+
+```{r}
+source("http://tiny.cc/dcf/haversine.R")
+```
+
+Then... 
+
+
+3. Using the merged table, add a variable `dist` like this: 
+```{r, echo=FALSE, eval=FALSE}
+Distances <- Joined %>%
+  mutate(dist = haversine(lat, long, lat2, long2))%>%
+  select(sstation,estation,dist)
+head(Distances,3)
+```
+
+```{r, eval=FALSE}
+mutate(dist = haversine(lat, long, lat2, long2))%>%
+```
+
+The end result, which we’ll call `Distances`, should look like this (this is a random sample so you won’t match it exactly):
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture4/distance2.png)
+
+Join `Trips` to `Distances` to add a `dist` value for each trip.
+
+```{r, echo=FALSE, eval=FALSE}
+joined_Trips <- Trips %>% left_join(Distances)
+head(joined_Trips,3)
+```
+
+## Distribtuions of Distances
+
+1. Make a density plot of `dist` broken down by weekend vs weekday and by `client`.
+
+```{r,warning=FALSE, echo=FALSE, eval=FALSE}
+joined_Trips %>% 
+  ggplot(aes(x=dist)) + geom_density(aes(fill=client),alpha=.5, color=NA) + facet_grid(.~wday)
+```
+
+2. Show the distribution of `dist` in a compact way with a violin plot or box and whiskers plot.For both  `geom_violin()` and `geom_boxplot()`, you will want to map the `group` aesthetic to `hour`. For  `geom_boxplot()`, you may prefer to set `outlier.size = 1`. You might also want to add a `stat_smooth()` layer. You should define `hours` as `hour = lubridate::hour(sdate)`.
+
+For example, this is a possible plot: 
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture4/distance3.png)
+
+```{r,warning=FALSE, echo=FALSE, eval=FALSE}
+joined_Trips %>%
+  mutate(hour = lubridate::hour(sdate)) %>%
+ggplot(aes(x=hour, y=dist)) + geom_boxplot(aes(group=hour),
+               outlier.size = 1,
+fill="gray", position = position_dodge()) + facet_grid(client ~ wday) +
+stat_smooth() + ylim(0,5)
+```
+

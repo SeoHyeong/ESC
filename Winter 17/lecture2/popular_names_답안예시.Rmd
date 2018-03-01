@@ -1,0 +1,33 @@
+---
+title: "Popular Names 답안의 예시"
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+```
+
+<!-- Don't edit the material above this line -->
+
+
+```{r, echo=FALSE}
+PopNames = c("Abraham", "Franklin", "Woodrow")
+
+GlyphReadyForm  <- BabyNames %>%
+             filter(name %in% PopNames) %>%
+             group_by(name, year) %>%
+             summarize(total = sum(count)) 
+
+head(GlyphReadyForm)
+
+
+GlyphReadyForm %>%
+  ggplot(aes(x = year, y = total, group = name)) +
+  geom_line(size = 1, alpha = 0.5, aes(color = name)) +
+  ylab("Popularity") + xlab("Year")
+```

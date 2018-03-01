@@ -1,0 +1,80 @@
+---
+title: "hw3 solution"
+author: ""
+date: ""
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+---
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+```
+*Source file* 
+```{r, results='asis', echo=FALSE}
+includeSourceDocuments()
+```
+<!-- Don't edit the material above this line -->
+
+We load the data table `ScorecardSmall` to RStudio
+```{r}
+download.file("http://tiny.cc/dcf/ScorecardSmall.Rda", destfile = "~/ScorecardSmall.Rda")
+load("~/ScorecardSmall.Rda")
+```
+
+1. we eliminate unneeded variables
+
+```{r}
+ScorecardSmall_wide <- ScorecardSmall %>% select(ADM_RATE, NPT41_PUB,NPT43_PUB,NPT45_PUB, NPT41_PRIV, NPT43_PRIV, NPT45_PRIV, INSTNM, CONTROL, CCSIZSET)
+```
+
+2. we convert from wide to narrow format using `gather()`
+
+```{r}
+library("tidyr")
+ScorecardSmall_narrow <- ScorecardSmall_wide %>% 
+  gather(key=NPT4, value = value, NPT41_PUB, NPT41_PRIV, NPT43_PUB, NPT43_PRIV, NPT45_PUB, NPT45_PRIV)
+head(ScorecardSmall_narrow)
+
+```
+
+3. 
+a) first we load NPT4-names.csv
+```{r}
+NPT4_names <- read.csv("http://tiny.cc/dcf/NPT4-names.csv/")
+head(NPT4_names)
+```
+
+b) next we do an inner join between `ScorecardSmall_narrow` and `NPT_names` 
+
+```{r}
+scorecard_join <- ScorecardSmall_narrow %>% inner_join(NPT4_names,by=c("NPT4"= "long_name"))
+head(scorecard_join)
+```
+
+c) further clean up the data table for graphics
+
+```{r}
+# here I make NPT4 variable Public or Private depending on the code. You can do this using the CONTROL varaible also. For example: mutate(CONTROL = ifelse(CONTROL==1, "Public", "Private")) but I didn't think of this at the time.
+scorecard_join$NPT4[scorecard_join$NPT4 %in% c("NPT41_PUB", "NPT43_PUB","NPT45_PUB") ] <- "Public" 
+scorecard_join$NPT4[scorecard_join$NPT4 %in% c("NPT41_PRIV", "NPT43_PRIV","NPT45_PRIV") ] <- "Private" 
+head(scorecard_join)
+scorecard_clean <- scorecard_join %>% 
+  mutate(value=value/1000, ADM_RATE=ADM_RATE*100) %>%
+  filter(ADM_RATE!=100, ! (CCSIZSET %in% c(1,6,7,8)), CONTROL != 3)
+
+```
+
+4. We make the graphics with ggplot2
+
+```{r,warning=FALSE, fig.width=7, fig.height=5}
+library(ggthemes)
+scorecard_clean %>% ggplot(aes(x=ADM_RATE,y=value)) + geom_point(colour="blue",alpha=.2) + facet_grid(NPT4 ~short_name ) +ylim(0,50) + xlim(5,100) + geom_smooth(colour="red") +labs(x="Admission rate, %", y="Net cost per year, $'000", title="Score Card") + theme_igray() + theme(plot.title = element_text(size = 25, colour = "black"),  
+        axis.title.x = element_text(size = 15, colour = "black"),  
+        axis.title.y = element_text(size = 15, colour = "black"))  
+```
+
+
+
