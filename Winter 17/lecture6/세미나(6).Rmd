@@ -1,0 +1,356 @@
+---
+title: "세미나(6)"
+author: ""
+date: ""
+output: 
+  html_document:
+    fig_height: 4
+    fig_width: 7
+---
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+library(printr)
+library(ggdendro)
+library(rpart.plot)
+library(stats)
+library(mosaicData)
+show_answers=TRUE
+```
+*Source file* 
+```{r, results='asis', echo=FALSE}
+includeSourceDocuments()
+```
+<!-- Don't edit the material above this line -->
+
+## 학습목표
+1. 지도학습(Supervised) vs 비지도학습(unsupervised learning): rpart vs clustering  
+2. 연속형 종속변수 (prediction): Linear Regression & rpart(regression)   
+3. 범주형 종속변수 (Classification): Logistic Regression & rpart(classification)
+
+다음 자료는 [reference](http://rpubs.com/alucas/270689)를 참고해 작성함.
+
+머신러닝이란 "데이터를 이용해서 컴퓨터를 학습시키는 방법론"으로 그 알고리즘은 크게 세 가지로 분류할 수 있다.
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture6/ml.jpg)
+
+사진의 [reference](http://solarisailab.com/archives/1785)와 자세한 설명은 링크를 통해 참고.
+
+classification과 regression은 모두 supervised(지도학습)의 하위범주에 해당된다. Classiciation과 regression은 모두 특정 Y 변수 (반응변수)가 이미 정해져 있으며 반응변수의 성질에 따라 연속형인 경우 regression 문제, 범주형일 경우 classification의 문제로 구분된다.
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture6/classificationregression.png)
+
+## 1. 지도학습(Supervised) vs 비지도학습(unsupervised learning)
+
+데이터 학습의 두 가지 목표:
+
+* 예측하기. 새로운 입력이 주어졌을 때, 그 결과가 어떻게 될 지 예측하는 것이 "예측하기"의 정확한 의미이다. 예를들어, 날씨 예측, 신용카드 사기에 대한 예측 등이 이에 포함된다. (지도학습)
+
+* 방대한 데이터에서 패턴 찾기. (비지도학습)
+
+
+### 지도학습 (aka statistical modeling)
+
+
+* $i = 1, 2, 3, \ldots, n$의 여러 case가 있고 이를 **training data**이라 부른다. 
+* 각각의 케이스에 여러개의 독립변수(input) ${\mathbf X_i}$ 이 존재한다.  
+* 각각의 케이스에 종속변수(output) $Y_i$ 가 존재한다.
+* 지도학습의 목표는 독립변수(들)로 부터 종속변수에 대한 결과를 "예측"하는 것이다. 따라서 독립변수와 종속변수의 관계를 찾아내는 것이 중요하다. 변수 사이의 관계는 **training data** 뿐만이 아니라 **testing data**에 대해서도 적합한 것이여야 한다. 관계는 수식으로난 다음과 같이 표현될 수 있다. $\hat{f}: \mathbf{X} \rightarrow Y$. 이를 우리는 *모델*이라고 표현하기도 한다.
+
+예를들어, `NCHS` 데이터에서 당뇨(diabetes)과 다른 변수들이 어떠한 관계를 가지는지 알고싶다고 하자. 이때 종속변수는 `diabetic`이다. 
+
+```{r}
+NCHS %>% select(diabetic, weight, sex, age, ethnicity, bmi) %>% head(3)
+```
+
+아래는 `diabetic`과 `bmi`사이의 관계를 표현한 모델이며, 이는 지도학습에 해당한다.
+
+```{r}
+#install.packages("remotes")
+#library(remotes)
+#install_version("statisticalModeling", "0.3.0")
+library(rpart)
+library(statisticalModeling)
+linear_model <- rpart(diabetic~bmi, data=NCHS)
+fmodel(linear_model)
+```
+
+BMI지수가 25 근방에서 당뇨지수가 크게 상승하는 것을 볼 수 있다. (2%에서 10%로) 실제로 BMI지수가 25-30 사이인 경우를 과체중으로 진단한다.
+
+
+### 비지도학습  
+
+- 지도학습에서는 독립(예측)변수 $\mathbf{X}$에서 목적으로 찾고자 하는 종속변수 (output, response variable) $Y$가 존재한다. 이를 찾고자 $\hat{f}: \mathbf{X} \rightarrow Y$를 *train*시킨다.
+
+- 비지도학습에서는 하나의 확정된 $Y$ 변수가 존재하지 않는다. 따라서 우리는 $\mathbf{X}$의 함수로 모델링을 하는 대신,  $\mathbf{X}$사이에서의 패턴을 찾는다.
+ 
+예를들어, 전 세계 4000개 도시들의 위도와 경도 정보를 가지고 6개의 대륙(남극을 제외한 6개의 land clusters)을 식별하고자 하는 상황을 생각해보자. 이러한 상황에서 "kmeans algorithm"을 사용하게 되는데, 이 알고리즘은 주어진 n개의 관측치(데이터)를 k개의 클러스터로 묶는 알고리즘으로, 각 클러스터와 거리 차이의 분산을 최소화하는 방식으로 동작한다.
+
+자세한 이론은 [k-평균 알고리즘](https://ko.wikipedia.org/wiki/K-%ED%8F%89%EA%B7%A0_%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98) 위키피디아 페이지를 참고.
+
+```{r}
+BigCities <- WorldCities %>%
+  arrange(desc(population)) %>%
+  head(4000) %>%
+  select(longitude,latitude)
+head(BigCities,3)
+```
+
+
+
+```{r}
+clusters <- BigCities %>%
+kmeans(centers=6)
+clusters[["centers"]]
+clusters[["size"]]
+clusters[["cluster"]] %>% head(20)
+```
+
+```{r}
+clusters <- clusters %>% 
+  fitted("classes") %>%
+  as.character()
+head(clusters)
+```
+
+```{r}
+BigCities <-  BigCities %>% mutate(cluster=clusters)
+head(BigCities)
+```
+
+```{r}
+BigCities %>% ggplot(aes(x=longitude, y=latitude)) + geom_point(aes(color=cluster, shape=cluster))
+```
+
+Compare to:
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture6/continents.png)
+
+## 2. 연속형 종속변수 (prediction)
+
+다음의 패키지를 사용하여 $Y$ 변수가 연속형인 경우 어떠한 방법론을 사용할 수 있는지 살펴보자.
+
+```{r,eval=FALSE}
+library(statisticalModeling)
+library(rpart)
+library(rpart.plot)
+library(stats)
+library(mosaicData)
+```
+
+$Y$ 변수가 연속형 (continuous, quantitative)인 경우 _linear regression_ 혹은 _recursive partition model_ 가 가장 흔히 사용되는 통계 모델이다.
+
+### Linear Regression
+linear model은 *parametric* 모델이다. 반응변수가 예측변수들과 선형의 관계를 가진다는 것을 *가정*하기 때문이다.
+
+지난 시간 다룬 내용이므로 이론적인 부분은 생략하고, 예시를 통해 _recursive partition model_ 와 어떻게 다른지 비교해보자.
+
+`Runners`라는 데이터 테이블을 10마일 달리기 대회에 대한 정보를 포함하고 있다.
+
+```{r}
+Runners %>% head(3) #statisticalModeling package
+```
+
+달리기 선수들의 `net` 시간을 반응함수로 지정한다고 할 때, 반응함수는 `age` 와 `sex` 변수와 관계가 있을 것이라고 생각해볼 수 있다.
+
+그렇다면, 다음과 같은 visualization으로 반응변수와 예측변수 사이 관계가 선형인지 확인해보자.
+
+```{r,message=FALSE,warning=FALSE}
+Runners %>% ggplot(aes(x=age,y=net)) + geom_point() + geom_smooth(method="lm") +facet_grid(sex~.)
+```
+
+linear model의 장점은 간단하고 해석이 쉽다는 점이다. 하지만 변수들 사이 선형 관계라는 가정이 내포되어 있기 때문에 보다 유연하지 못한 모델이라는 단점이 있다.
+
+`fmodel()`함수는 linear model의 결과를 시각적으로 보여준다.
+
+```{r}
+lm(net~age + sex, Runners) %>% fmodel()
+```
+
+`evaluate_model()` 함수는 특정한 input에 대해 output 값을 반환해준다.
+
+```{r}
+lm(net~age + sex, Runners) %>%
+evaluate_model(at=list(age=20, sex="M"))
+```
+
+위의 결과는 평균적으로 20살의 남성의 경우 10마일을 뛰는데 76.64분이 걸린다고 해석할 수 있다.
+
+
+### Recursive Partitioning (regression)
+
+[재귀적 분기](https://ratsgo.github.io/machine%20learning/2017/03/26/tree/)
+
+Recursive partitioning은 *nonparametric* 모델으로 변수들 사이 어떠한 관계도 가정하지 않는다.
+
+이 모델의 가장 큰 특징은 유사한 반응 변수의 값을 가진 관측치들이 모델링이 끝날 때 까지 계속해서 분기 과정을 거친다는 것이다. (recursively partitioned)
+
+분기 과정이 끝나고 나면, 이 모델은 각 그룹에 대한 반응 변수의 값을 예측함다. 이 때의 최종 그룹은 우리는 잎(leaves) 혹은 terminal node라고 부른다.
+
+앞에서 사용한 `Runners`데이터 셋을 사용하여 예시를 살펴보자. 여기서도 `net` 시간을 반응함수로 정하자. `net` 변수가 `age`와 `sex` 변수들의 함수라고 하자.
+
+```{r}
+rpart(net~ age + sex,  data=Runners) %>% rpart.plot::prp(type=3)
+```
+
+`sex` 변수에 따라 데이터를 구분함으로써 `net` 시간이 상당히 차이가 남을 확인할 수 있다. 성별 변수로 구분된 데이터는 `age` 변수에 의해 한 번 더 구분된다.
+
+다음과 같이 _decision_ tree (의사결정나무)를 그래프로 표현할 수 있다:
+
+```{r}
+rpart(net~ age + sex,  data=Runners) %>% fmodel()
+```
+
+`rpart()`함수에는 `cp` (complexity parameter)라는 옵션이 있다. `cp`는 새로운 가지를 치기 위해 반응변수에 얼마나 큰 차이가 필요한가를 정하는 parameter이다. default 값은 `cp=.02`으로 설정되어 있으며 `cp`값이 작을 수록 더 복잡한 tree를 생성한다.
+
+더 복잡한 가지를 생성한다는 것은 그만큼 overfitting의 문제가 커질 수 있음을 의미한다. overfitting이란 모델이 너무 training dataset에 적합하게 디자인 된 상황을 의미하는데, 이런 경우 새로운 데이터에 대해서 모델이 잘 작동하지 않을 가능성이 있다.
+
+```{r}
+rpart(net~ age + sex,  data=Runners, cp=.002) %>% rpart.plot::prp(type=3)
+```
+
+recursive partition model의 장점은 결과를 쉽게 해석할 수 있다는 점과 변수들에 대해 아무런 사전 가정을 하지 않는 다는 점이다.
+
+
+## 3. 범주형 종속변수 (Classification)
+
+### Logistic Regression
+
+[reference](https://www.r-bloggers.com/how-to-perform-a-logistic-regression-in-r/)
+
+* Logistic regression은 범주형 종속변수에 대한 linear regression이라고 생각할 수 있다. Logistic regression 모델은 주로 예측변수 X들을 가지고 Y를 예측할 때 사용된다. 예측변수는 연속형이거나 범주형일 수 있으며, 두 가지가 혼합된 형태일 수도 있다.
+
+* 반응변수가 범주형이면서도 binary인 경우, 즉 (1) 혹은 (0)을 값을 가지는 상황으로 디자인 될 수 있는 경우, 우리는 이러한 문제를 "binomial logistic regression"이라고 부르며, 범주가 2개 이상인 경우는 "multinomial logistic regression"이라고 부른다. 예를들어, 이멩릴의 스팸여부를 판별 (0-스팸이 아님, 1-스팸임)을 예측하고 싶은 경우 전자에, 영화가 "매우 지루함", "괜찮음", "흥미로움"을 예측하고 싶은 경우는 후자에 해당한다. 
+
+![](/Users/jeongseohyeong/Desktop/R스터디 방학세션/lecture6/logistic.png)
+
+(binomial) logistic regression에서는 Y변수의 결과가 범위 [0,1]로 제한되며, Y변수가 이진적(binary)이기 때문에 조건부 확률의 분포가 정규분포 대신 이항분포를 따른다는 점이다. 
+
+데이터의 종속변수 Y의 결과는 0과 1 두 개의 경우만 존재하는데 반해, 단순 선형 회귀를 적용하면 범위 [0,1]을 벗어나는 결과가 나오기 때문에 오히려 예측의 정확도가 떨어지게 된다.
+
+이를 해결하기 위해 logistic regresison은 연속이고 증가함수이며 [0,1]에서 값을 갖는 연결 함수 $g(x)=e^x/1+e^x$를 제안하였다. 
+
+위의 그림에서 살펴보는 것과 같이 [0,1] 사이에서 디자인된 함수를 적당한 threshold(임계점)을 가지고 나누어 그 이하를 0 그리고 그 초과를 1로 예측할 수 있다. 예를들어, 비가 올 확률에 대해 0이 비가 오지 않음, 1이 비가 옴 으로 예측하는 경우 0.5를 기준으로 그 이하의 결과를 가질 경우 0, 즉 비가 오지 않음으로 그리고 나머지의 경우를 1, 비가 옴으로 예측할 수 있다. 
+
+우리가 살펴볼 모델은 "binomial logistic regression"이다. 예시 살펴보기 위해 `titanic` 데이터를 이용하자.
+
+```{r}
+training.data.raw <- read.csv("/Users/jeongseohyeong/Desktop/파이썬 방학세션/4주차+랜덤포레스트/titanic.csv", header = T, na.strings=c(" "))
+```
+
+##### 데이터 전처리
+```{r}
+sapply(training.data.raw, function(x) sum(is.na(x)))
+```
+
+```{r}
+library(Amelia)
+missmap(training.data.raw, main = "Missing Values vs Observed")
+```
+
+```{r}
+# select survived, pclass, sex, age, sibsp, parch, fare, embarked
+data <- subset(training.data.raw, select=c(2,3,5,6,7,8,10,12))
+head(data)
+```
+
+age 변수의 missing value만 처리해주면 되는데, 여기서는 missing value imputation이 주된 목적이 아니므로 평균으로 결측치를 해결한다.
+
+```{r}
+data$Age[is.na(data$Age)] <- mean(data$Age,na.rm=T)
+```
+
+R이 어떻게 범주형 변수를 인코딩하는지 확인하고 싶을 때는, `contrasts()`함수를 이용하여 확인할 수 있다:
+```{r}
+contrasts(data$Sex)
+```
+
+```{r}
+contrasts(data$Embarked)
+```
+
+##### 모델링
+
+logistic regression model 디자인에 앞서 data set을 training set과 test set으로 나누어 진행하자. training set은 모델을 디자인하는데 쓰이며, test set은 디자인한 모델을 평가하는데 쓰이게 된다. 
+
+```{r}
+train <- data[1:800, ]
+test <- data[801:891,]
+```
+
+R에서는 `glm()` 함수로 logistic regression 모델을 입력한다.
+```{r}
+model <- glm(Survived~., family=binomial(link='logit'), data=train)
+```
+
+```{r}
+summary(model)
+```
+
+`SibSp`, `Fare`와 `Embarked` 변수는 통계적으로 유의하지 않음을 확인할 수 있다. 통계적으로 유의한 변수들 중에서는 `Sex` 변수가 가장 작은 p-value 값을 가진다. `Sexmale`의 계수가 음수인 것에 대한 해석은 다른 예측 변수들에 변동이 없음을 가정하는 상황에서, 성별이 남성인 경우 살아남을 확률이 낮은 것을 의미한다. 즉 해당 예측변수와 1로 인코딩된 종속변수의 카테고리 사이의 관계가 음의 관계임을 의미한다. 
+
+`link='logit'`은 estimated coefficient(계수)가 logit으로 표현되었음을 의미하는데, 이 때 logit이란, $ln(odds)=ln(p/(1-p))=aX_1+bX_2+...+zX_n$을 의미한다. 즉 `Sexmale`의 계수 -2.754348는 남성인 경우 logit 즉 log(odds)가 2.75 줄어든다. 반면, `age`의 경우 log(odds)가 0.037244 줄어든다.
+
+##### 모델 평가
+
+앞서 준비해둔 test dataset을 가지고 모델을 평가해보자.
+
+```{r}
+fitted.results <- predict(model,newdata=subset(test,select=c(2,3,4,5,6,7,8)),type='response') #예측값을 백터로 저장
+fitted.results <- ifelse(fitted.results > 0.5,1,0) #0.5를 임계값으로 설정함, 0.5보다 크면 1로 저장하고 작으면 0으로 저장
+misClasificError <- mean(fitted.results != test$Survived) #예측이 얼마나 정확한지 확인
+print(paste('Accuracy',1-misClasificError))
+```
+
+0.84의 정확도면 나쁘지 않은 결과이지만 임의적으로 test dataset과 training dataset을 분류한 점, 전처리를 임의적으로 한 점 등을 고려하면 절대적으로 신뢰할만 결과라고 판단내릴 수 없다. 더욱 정확한 모델링과 평가를 위해서는 k-fold cross validation 등의 기법이 사용될 수 있다. 
+
+##### ROC Curve
+
+마지막으로 logistic model 평가를 시각적으로 보여주는 ROC 커브를 소개하며 logistic regression을 마무리하자.
+
+```{r}
+library(ROCR)
+p <- predict(model, newdata=subset(test,select=c(2,3,4,5,6,7,8)), type="response")
+pr <- prediction(p, test$Survived)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+```
+
+* False Positive Rate: 틀린 것을 맞다고 할 확률
+* True Positive Rate: 맞는 것을 맞다고 할 확률
+
+우리가 원하는 결과는 '맞는 것을 맞다고 예측할 확률'을 높이는 것이다. 따라서 curve가 왼쪽 상단에 가까울 수록 좋은 모델이라고 결론지을 수 있다. 이를 수치적으로 나타내기 위해 AUC(Area Under the Curve) 해석을 사용하는데, AUC 값은 0.5에서 1의 값을 가진다. 1에 가까울 수록 커브가 왼쪽 상단에 가깝다고 볼 수 있으며 좋은 예측 능력을 가진 모델이라고 볼 수 있다.
+
+
+### Recursive Partitioning (classification)
+
+* Recursive partition model은 종속변수의 종류(범주형인지 연속형인지)와 상관없이 적용될 수 있다.
+
+```{r}
+head(Runners)
+```
+
+반응변수를 `start_position`로 지정하고 반응변수가 `age`, `net` 변수들과 어떠한 관계를 가지는지 살펴보자. 이때의 문제설정은 반응변수가 범주형이기 때문에 classification의 상황이다.
+
+```{r}
+rpart(start_position~net + age,data=Runners ) %>% rpart.plot::prp(type=3)
+```
+
+이 경우 `age` 변수가 트리 형성에 아무런 영향을 미치지 않는것을 확인할 수 있다.
+
+반응변수가 범주형인 경우, 앞서 살펴본 경우와 같은 방식으로 가지가 형성되는데 범주형인 경우는 "순도"를 높이는 것을 기준으로 가지가 형성된다. 예를들어, 처음 가지에서 `net=82`를 기준으로 eager한 선수들이 대부분 걸러진 것을 볼 수 있다.
+
+`rpart()` 함수에 특정 예측변수를 설정하지 않고 모든 변수를 예측변수로 입력하는 경우, 다음의 결과를 얻는다. 
+
+```{r}
+rpart(start_position~.,data=Runners ) %>% rpart.plot::prp(type=3)
+```
+
+모든 변수를 $X$ 변수로 입력했음에도 불구하고 오직 `net`과 `gun`만 트리 형성에 중요한 역할을 한 것을 확인할 수 있다.
+
+따라서 결과적으로 모든 변수를 입력하는 방식을 통해 어떤 변수들이 recursive partitioning에 중요한 역할을 하는 변수들인지 걸러낼 수 있다. 

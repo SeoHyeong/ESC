@@ -1,0 +1,108 @@
+---
+title: "HW(5) Solution"
+author: ""
+date: ""
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+---
+<!-- Don't edit in between this line and the one below -->
+```{r include=FALSE}
+# Don't delete this chunk if you are using the DataComputing package
+library(DataComputing)
+```
+*Source file* 
+```{r, results='asis', echo=FALSE}
+includeSourceDocuments()
+```
+<!-- Don't edit the material above this line -->
+
+### Q9.
+
+##### a) Produce a scatterplot matrix which includes all of the variables in the data set.
+
+```{r}
+library(ISLR)
+pairs(Auto)
+```
+
+##### b) Compute the matrix of correlations between the variables using the function `cor()`. You will need to exclude the `name` variable, which is qualitative.
+
+```{r}
+names(Auto)
+cor(Auto[1:8])
+```
+
+##### c) Use the `lm()` function to perform a multiple linear regression with `mpg` as the response and all other variables except `name()` as the predictors. Use the `summary()` function to print the results. Comment on the output. For instance:
+
+###### Is there a relationship between the predictors and the response?
+```{r}
+lm1 <- lm(mpg~.-name, data=Auto)
+summary(lm1)
+```
+
+F-statistic이 반응변수와 예측변수들 간의 관계(식 전체)를 진단해준다. 여기서는 상당히 작은 p-value가 도출되는 것으로 보아 `mpg` 변수와 다른 예측 변수들이 선형 관계를 가진다고 진단해볼 수 있다.
+
+
+###### Which predictors appear to have a statistically significant relationship to the response?
+
+각 예측변수의 t-statistic에 대한 p-value (가장 오른쪽  column)을 통해 어떠한 예측변수가 가장 반응변수와 통계적으로 유의한 관계를 가지는지 확인할 수 있다. `cylinders`, `horsepower` 그리고 `acceleration`을 제외하고는 모두 통계적으로 유의하다고 볼 수 있다.
+
+
+###### What does the coefficient for the `year` variable suggest?
+
+다른 모든 예측변수가 고정이라고 가정할 때, 1년의 증가는 `mpg` 값을 평균적으로 0.750773 만큼 증가시킴을 알 수 있다. 즉, 평균적으로 자동차들은 매년 0.75mpg/year 만큼 효율(연료)적이다.
+
+
+##### d) Use the plot() function to produce diagnostic plots of the linear regression fit. Comment on any problems you see with the fit. Do the residual plots suggest any unusually large outliers? Does leverage plots identify any observations with unusually high leverage?
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm1)
+```
+
+잔차그림(좌측 상단)을 통해 약한 non-linearity가 존재함을 확인할 수 있다. 그리고 우측 하단의 그래프를 통해 몇 몇의 관측치들이 (-2, 2)의 범위를 벗어나는 것을 확인할 수 있다. (-2, 2)의 범위를 벗어나는 관측치들을 outliers라고 볼 수 있다. leverage point로는 14번 관측치가 눈에 띈다.
+
+
+##### e) Use the `*` and `:` symbols to fit linear regression models with interaction effects. Do any interactions apperar to be statitically significant?
+
+예시로 cylinders, displacement, weight 변수만 고려하여 모델링함.
+```{r}
+lm2 <- lm(mpg~cylinders*displacement+displacement*weight, data=Auto)
+summary(lm2)
+```
+
+displacement과 weight사이 통계적으로 유의한 interaction effect이 존재함을 p-value를 통해 확인할 수 있다. 하지만 cyliners과 displacement 사이에는 유의미한 interaction effect를 찾아볼 수 없다.
+
+
+##### f) Try a few different transformations of the variables, such as 
+$logX$, $sqrt(X)$ and $X^2$. Comment on your findings.
+
+```{r}
+par(mfrow=c(2,2))
+plot(log(Auto$horsepower), Auto$mpg)
+plot(sqrt(Auto$horsepower), Auto$mpg)
+plot((Auto$horsepower)^2, Auto$mpg)
+```
+
+로그 변환이 가장 linear한 결과를 도출해내는 것을 확인할 수 있다.
+
+
+### Q10.
+
+##### a) Fit a multiple regression model to predict `Sales` using `Price`, `Urban` and `US`.
+
+```{r}
+data(Carseats)
+lm3 <- lm(Sales~Price+Urban+US, data=Carseats)
+summary(lm3)
+```
+
+##### b) Provide an iinterpretation of each coefficient in the model. Be careful - some of the variables in the model are qualitative!
+
+The coefficient of the “Price” variable may be interpreted by saying that the average effect of a price increase of 1 dollar is a decrease of 54.4588492 units in sales all other predictors remaining fixed. The coefficient of the “Urban” variable may be interpreted by saying that on average the unit sales in urban location are 21.9161508 units less than in rural location all other predictors remaining fixed. The coefficient of the “US” variable may be interpreted by saying that on average the unit sales in a US store are 1200.5726978 units more than in a non US store all other predictors remaining fixed.
+
+
+##### c) Write out the model in equation form, being careful
+
